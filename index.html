@@ -218,14 +218,23 @@
       <h3 id="collection-count">Ma Collection Cloud</h3>
       
       <div class="filter-box">
-        <input type="text" id="collection-filter-input" placeholder="🔎 Filtrer par titre, acteur, réalisateur..." onkeyup="renderCollection()">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <label style="font-size:0.8rem; color:#aaa;">Ordre d'affichage :</label>
-          <select id="collection-sort" onchange="renderCollection()" style="width: auto; padding: 6px; margin:0; font-size: 0.85rem;">
-            <option value="az">🔤 Alphabétique (A-Z)</option>
-            <option value="za">🔤 Inverse (Z-A)</option>
-            <option value="newest">🆕 Plus récents</option>
-          </select>
+        <input type="text" id="collection-filter-input" placeholder="🔎 Filtrer par titre, acteur, réalisateur, genre..." onkeyup="renderCollection()">
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:5px;">
+          <div>
+            <label style="font-size:0.75rem; color:#aaa;">Filtrer par genre :</label>
+            <select id="collection-genre-filter" onchange="renderCollection()" style="padding:6px; margin:0; font-size:0.85rem;">
+              <option value="">🎭 Tous les genres</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.75rem; color:#aaa;">Ordre d'affichage :</label>
+            <select id="collection-sort" onchange="renderCollection()" style="padding:6px; margin:0; font-size:0.85rem;">
+              <option value="az">🔤 Alphabétique (A-Z)</option>
+              <option value="za">🔤 Inverse (Z-A)</option>
+              <option value="newest">🆕 Plus récents</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -276,6 +285,8 @@
 
       <a id="modal-imdb-link" href="#" target="_blank" class="btn-imdb" style="display:none;">🎬 Voir sur IMDb</a>
       <a id="modal-tmdb-link" href="#" target="_blank" class="btn-external">🔗 Voir sur TMDB Web</a>
+      
+      <button id="modal-delete-btn" class="btn-delete" style="width:100%; margin: 15px 0 0 0;" onclick="">🗑️ Supprimer ce titre</button>
     </div>
   </div>
 
@@ -323,6 +334,7 @@
       snapshot.forEach((doc) => {
         localCollection.push({ docId: doc.id, ...doc.data() });
       });
+      populateGenreDropdown();
       renderCollection();
       renderWishlist();
     });
@@ -484,11 +496,35 @@
     async function deleteMovie(docId) {
       if (confirm("Confirmer la suppression de ce titre ?")) {
         await db.collection("movies").doc(docId).delete();
+        closeModal();
       }
+    }
+
+    function populateGenreDropdown() {
+      let select = document.getElementById('collection-genre-filter');
+      let currentVal = select.value;
+      
+      let genresSet = new Set();
+      localCollection.forEach(m => {
+        if (m.genres && m.genres !== 'N/A') {
+          m.genres.split(',').forEach(g => genresSet.add(g.trim()));
+        }
+      });
+
+      let sortedGenres = Array.from(genresSet).sort();
+      select.innerHTML = '<option value="">🎭 Tous les genres</option>';
+      sortedGenres.forEach(g => {
+        let opt = document.createElement('option');
+        opt.value = g;
+        opt.innerText = g;
+        select.appendChild(opt);
+      });
+      select.value = currentVal;
     }
 
     function renderCollection() {
       let filterText = document.getElementById('collection-filter-input').value.toLowerCase().trim();
+      let selectedGenre = document.getElementById('collection-genre-filter').value;
       let sortType = document.getElementById('collection-sort').value;
 
       let collectionOnly = localCollection.filter(m => !m.isWishlist);
@@ -497,7 +533,16 @@
         let titleMatch = m.title && m.title.toLowerCase().includes(filterText);
         let dirMatch = m.director && m.director.name && m.director.name.toLowerCase().includes(filterText);
         let castMatch = m.cast && m.cast.some(c => c.name.toLowerCase().includes(filterText));
-        return titleMatch || dirMatch || castMatch;
+        let genreTextMatch = m.genres && m.genres.toLowerCase().includes(filterText);
+
+        let textMatches = titleMatch || dirMatch || castMatch || genreTextMatch;
+
+        let genreDropdownMatch = true;
+        if (selectedGenre) {
+          genreDropdownMatch = m.genres && m.genres.includes(selectedGenre);
+        }
+
+        return textMatches && genreDropdownMatch;
       });
 
       if (sortType === 'az') {
@@ -607,6 +652,9 @@
       } else {
         imdbEl.style.display = 'none';
       }
+
+      let delBtn = document.getElementById('modal-delete-btn');
+      delBtn.onclick = function() { deleteMovie(movie.docId); };
 
       document.getElementById('movie-modal').style.display = 'block';
     }
