@@ -379,60 +379,70 @@
     let favoriteTvIds = [];
     let tmdbApiKey = "";
 
-    // Lecture Firestore avec secours de données
+    // Lecture Firestore ultra-sécurisée contre les erreurs de types
     db.collection("movies").onSnapshot((snapshot) => {
       document.getElementById('debug-banner').style.display = 'none';
       localCollection = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        let rawPoster = data.poster || data.image || data.poster_path || '';
-        let cleanPoster = rawPoster;
-        if (rawPoster && !rawPoster.startsWith('http')) {
-          cleanPoster = 'https://image.tmdb.org/t/p/w500' + rawPoster;
-        }
-
-        // Parsing robuste du champ genres
-        let parsedGenres = 'Général';
-        if (data.genres) {
-          if (Array.isArray(data.genres)) {
-            parsedGenres = data.genres.join(', ');
-          } else {
-            parsedGenres = data.genres;
+        try {
+          const data = doc.data() || {};
+          let rawPoster = data.poster || data.image || data.poster_path || '';
+          let cleanPoster = rawPoster;
+          if (rawPoster && typeof rawPoster === 'string' && !rawPoster.startsWith('http')) {
+            cleanPoster = 'https://image.tmdb.org/t/p/w500' + rawPoster;
           }
-        } else if (data.genre) {
-          parsedGenres = Array.isArray(data.genre) ? data.genre.join(', ') : data.genre;
-        }
 
-        // Parsing robuste du réalisateur
-        let directorObj = { name: 'Inconnu', id: null };
-        if (data.director) {
-          if (typeof data.director === 'string') {
-            directorObj.name = data.director;
-          } else if (typeof data.director === 'object' && data.director.name) {
-            directorObj = data.director;
+          // Parsing Genres
+          let parsedGenres = 'Général';
+          if (data.genres) {
+            parsedGenres = Array.isArray(data.genres) ? data.genres.join(', ') : String(data.genres);
+          } else if (data.genre) {
+            parsedGenres = Array.isArray(data.genre) ? data.genre.join(', ') : String(data.genre);
           }
-        } else if (data.realisateur) {
-          directorObj.name = data.realisateur;
-        }
 
-        localCollection.push({
-          docId: doc.id,
-          id: data.id || null,
-          title: data.title || data.nom || data.titre || "Titre sans nom",
-          poster: cleanPoster,
-          format: data.format || "DVD",
-          genres: parsedGenres,
-          runtime: data.runtime || 'N/A',
-          director: directorObj,
-          cast: data.cast || [],
-          release_date: data.release_date || data.annee || '',
-          vote_average: data.vote_average || 'N/A',
-          overview: data.overview || data.synopsis || 'Aucun résumé disponible.',
-          isWishlist: data.isWishlist || false,
-          tmdb_url: data.tmdb_url || null,
-          imdb_url: data.imdb_url || null,
-          isTV: data.isTV || data.media_type === 'tv' || false
-        });
+          // Parsing Réalisateur
+          let directorObj = { name: 'Inconnu', id: null };
+          if (data.director) {
+            if (typeof data.director === 'string') {
+              directorObj.name = data.director;
+            } else if (typeof data.director === 'object' && data.director.name) {
+              directorObj = data.director;
+            }
+          } else if (data.realisateur) {
+            directorObj.name = String(data.realisateur);
+          }
+
+          // Parsing Casting
+          let parsedCast = [];
+          if (data.cast) {
+            if (Array.isArray(data.cast)) {
+              parsedCast = data.cast.map(c => typeof c === 'string' ? { name: c, id: null } : c);
+            } else if (typeof data.cast === 'string') {
+              parsedCast = data.cast.split(',').map(name => ({ name: name.trim(), id: null }));
+            }
+          }
+
+          localCollection.push({
+            docId: doc.id,
+            id: data.id || null,
+            title: String(data.title || data.nom || data.titre || "Titre sans nom"),
+            poster: cleanPoster,
+            format: String(data.format || "DVD"),
+            genres: parsedGenres,
+            runtime: String(data.runtime || 'N/A'),
+            director: directorObj,
+            cast: parsedCast,
+            release_date: String(data.release_date || data.annee || ''),
+            vote_average: String(data.vote_average || 'N/A'),
+            overview: String(data.overview || data.synopsis || 'Aucun résumé disponible.'),
+            isWishlist: Boolean(data.isWishlist),
+            tmdb_url: data.tmdb_url || null,
+            imdb_url: data.imdb_url || null,
+            isTV: Boolean(data.isTV || data.media_type === 'tv')
+          });
+        } catch (e) {
+          console.error("Erreur de parsing sur un document :", doc.id, e);
+        }
       });
       populateGenreDropdown();
       renderCollection();
@@ -771,7 +781,7 @@
       let filtered = collectionOnly.filter(m => {
         let titleMatch = m.title && m.title.toLowerCase().includes(filterText);
         let dirMatch = m.director && m.director.name && m.director.name.toLowerCase().includes(filterText);
-        let castMatch = m.cast && m.cast.some(c => c.name.toLowerCase().includes(filterText));
+        let castMatch = m.cast && Array.isArray(m.cast) && m.cast.some(c => c.name && c.name.toLowerCase().includes(filterText));
         let genreTextMatch = m.genres && m.genres.toLowerCase().includes(filterText);
 
         let textMatches = titleMatch || dirMatch || castMatch || genreTextMatch;
@@ -857,16 +867,22 @@
 
       let dirEl = document.getElementById('modal-director');
       if (movie.director && movie.director.id) {
-        dirEl.innerHTML = `<span class="clickable-person" onclick="inspectPerson(${movie.director.id}, '${movie.director.name.replace(/'/g, "\\'")}')">${movie.director.name}</span>`;
+        let cleanDirName = String(movie.director.name).replace(/'/g, "\\'");
+        dirEl.innerHTML = `<span class="clickable-person" onclick="inspectPerson(${movie.director.id}, '${cleanDirName}')">${movie.director.name}</span>`;
       } else {
         dirEl.innerText = movie.director ? movie.director.name : 'Inconnu';
       }
 
       let castEl = document.getElementById('modal-cast');
       if (movie.cast && Array.isArray(movie.cast) && movie.cast.length > 0) {
-        castEl.innerHTML = movie.cast.map(c => 
-          `<span class="clickable-person" onclick="inspectPerson(${c.id}, '${c.name.replace(/'/g, "\\'")}')">${c.name}</span>`
-        ).join(', ');
+        castEl.innerHTML = movie.cast.map(c => {
+          if (c.id && c.name) {
+            let cleanCastName = String(c.name).replace(/'/g, "\\'");
+            return `<span class="clickable-person" onclick="inspectPerson(${c.id}, '${cleanCastName}')">${c.name}</span>`;
+          } else {
+            return `<span>${c.name || c}</span>`;
+          }
+        }).join(', ');
       } else {
         castEl.innerText = 'Non renseigné';
       }
@@ -991,7 +1007,7 @@
       
       let matchedMovies = localCollection.filter(m => {
         let inDir = m.director && m.director.name === personName;
-        let inCast = m.cast && m.cast.some(c => c.name === personName);
+        let inCast = m.cast && Array.isArray(m.cast) && m.cast.some(c => c.name === personName);
         return inDir || inCast;
       });
 
