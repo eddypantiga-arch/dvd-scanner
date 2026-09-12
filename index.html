@@ -179,6 +179,17 @@
       font-size: 1.05rem; font-weight: bold; color: #38bdf8;
       border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px;
     }
+
+    .ep-tag {
+      background-color: rgba(56, 189, 248, 0.15);
+      border-left: 3px solid #38bdf8;
+      padding: 4px 6px;
+      margin-top: 5px;
+      font-size: 0.75rem;
+      border-radius: 0 4px 4px 0;
+    }
+    .ep-num { font-weight: bold; color: #38bdf8; }
+    .ep-title-text { color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -218,7 +229,7 @@
       <div id="search-results" class="grid" style="margin-top:15px;"></div>
 
       <!-- BLOC SORTIES SÉRIES J+7 -->
-      <div class="section-title">📺 Épisodes diffusés dans les 7 jours (J+7)</div>
+      <div class="section-title">📺 Épisodes diffusés actuellement (J+7)</div>
       <div id="airing-today-grid" class="grid">
         <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des sorties de la semaine...</p>
       </div>
@@ -451,6 +462,21 @@
       let imdbId = details.external_ids ? details.external_ids.imdb_id : (details.imdb_id || null);
       let runtimeStr = isTV ? `${details.number_of_seasons || 1} Saison(s) - ${details.number_of_episodes || 0} Ép.` : formatRuntime(details.runtime);
 
+      // Récupération des informations du prochain ou dernier épisode
+      let epInfo = null;
+      if (isTV) {
+        let ep = details.next_episode_to_air || details.last_episode_to_air;
+        if (ep) {
+          let sNum = String(ep.season_number).padStart(2, '0');
+          let eNum = String(ep.episode_number).padStart(2, '0');
+          epInfo = {
+            code: `S${sNum}E${eNum}`,
+            name: ep.name || '',
+            isNext: !!details.next_episode_to_air
+          };
+        }
+      }
+
       return {
         id: m.id,
         title: titleName,
@@ -465,7 +491,8 @@
         tmdb_url: `https://www.themoviedb.org/${typeEndpoint}/${m.id}`,
         imdb_url: imdbId ? `https://www.imdb.com/title/${imdbId}` : null,
         isTV: isTV,
-        seasonsCount: details.number_of_seasons || 1
+        seasonsCount: details.number_of_seasons || 1,
+        episodeInfo: epInfo
       };
     }
 
@@ -479,11 +506,24 @@
         
         if (data.results && data.results.length > 0) {
           grid.innerHTML = '';
-          for (let idx = 0; idx < Math.min(data.results.length, 6); idx++) {
+          let maxCount = Math.min(data.results.length, 12);
+          for (let idx = 0; idx < maxCount; idx++) {
             let tv = data.results[idx];
-            let posterUrl = tv.poster_path ? `https://image.tmdb.org/t/p/w500${tv.poster_path}` : 'https://via.placeholder.com/150x220?text=Pas+d+image';
-            
-            window[`airingTV_${idx}`] = await formatTmdbItem(tv, 'tv');
+            let movieItem = await formatTmdbItem(tv, 'tv');
+            window[`airingTV_${idx}`] = movieItem;
+
+            let posterUrl = movieItem.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
+
+            let epHTML = '';
+            if (movieItem.episodeInfo) {
+              let tagLabel = movieItem.episodeInfo.isNext ? 'Prochain' : 'Dernier';
+              epHTML = `
+                <div class="ep-tag">
+                  <span class="ep-num">${tagLabel} : ${movieItem.episodeInfo.code}</span>
+                  <div class="ep-title-text" title="${movieItem.episodeInfo.name}">${movieItem.episodeInfo.name}</div>
+                </div>
+              `;
+            }
 
             let card = document.createElement('div');
             card.className = 'card';
@@ -491,7 +531,8 @@
               <img src="${posterUrl}" alt="${tv.name}">
               <div class="card-info">
                 <div class="card-title">${tv.name}</div>
-                <div style="font-size:0.75rem; color:#aaa;">⭐ ${tv.vote_average ? tv.vote_average.toFixed(1) : 'N/A'}/10</div>
+                <div style="font-size:0.75rem; color:#aaa;">⭐ ${movieItem.vote_average}/10</div>
+                ${epHTML}
               </div>
               <button class="action-btn" style="margin:5px 10px;" onclick='addAiringToCollection(${idx}, false)'>+ Collection</button>
               <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='addAiringToCollection(${idx}, true)'>💡 Envies</button>
