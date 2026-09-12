@@ -183,13 +183,12 @@
     .ep-tag {
       background-color: rgba(56, 189, 248, 0.15);
       border-left: 3px solid #38bdf8;
-      padding: 4px 6px;
-      margin-top: 5px;
-      font-size: 0.75rem;
+      padding: 6px;
+      margin-top: 8px;
       border-radius: 0 4px 4px 0;
     }
-    .ep-num { font-weight: bold; color: #38bdf8; }
-    .ep-title-text { color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ep-num { font-weight: bold; color: #38bdf8; font-size: 0.75rem; display: block; }
+    .ep-title-text { color: #ddd; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -229,9 +228,9 @@
       <div id="search-results" class="grid" style="margin-top:15px;"></div>
 
       <!-- BLOC SORTIES SÉRIES J+7 -->
-      <div class="section-title">📺 Épisodes diffusés actuellement (J+7)</div>
+      <div class="section-title">📺 Épisodes diffusés dans les 7 jours (J+7)</div>
       <div id="airing-today-grid" class="grid">
-        <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des sorties de la semaine...</p>
+        <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des séries...</p>
       </div>
     </div>
 
@@ -434,8 +433,10 @@
     }
 
     async function fetchMovieDetails(id, type) {
-      let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&language=fr-FR&append_to_response=credits,external_ids`);
-      return await res.json();
+      try {
+        let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&language=fr-FR&append_to_response=credits,external_ids`);
+        return await res.json();
+      } catch(e) { return {}; }
     }
 
     async function formatTmdbItem(m, searchType) {
@@ -443,8 +444,9 @@
       let isCollectionType = searchType === 'collection';
       let typeEndpoint = isTV ? 'tv' : (isCollectionType ? 'collection' : 'movie');
 
-      let titleName = isTV ? (m.name || m.original_name) : (isCollectionType ? (m.name || m.title) : m.title);
       let details = await fetchMovieDetails(m.id, typeEndpoint);
+
+      let titleName = isTV ? (details.name || m.name || m.original_name) : (isCollectionType ? (details.name || m.name || m.title) : (details.title || m.title));
 
       let genres = details.genres ? details.genres.map(g => g.name).join(', ') : 'N/A';
       let director = { name: 'Inconnu', id: null };
@@ -462,7 +464,7 @@
       let imdbId = details.external_ids ? details.external_ids.imdb_id : (details.imdb_id || null);
       let runtimeStr = isTV ? `${details.number_of_seasons || 1} Saison(s) - ${details.number_of_episodes || 0} Ép.` : formatRuntime(details.runtime);
 
-      // Récupération des informations du prochain ou dernier épisode
+      // Extraction de l'épisode
       let epInfo = null;
       if (isTV) {
         let ep = details.next_episode_to_air || details.last_episode_to_air;
@@ -471,7 +473,7 @@
           let eNum = String(ep.episode_number).padStart(2, '0');
           epInfo = {
             code: `S${sNum}E${eNum}`,
-            name: ep.name || '',
+            name: ep.name || 'Épisode sans titre',
             isNext: !!details.next_episode_to_air
           };
         }
@@ -480,10 +482,10 @@
       return {
         id: m.id,
         title: titleName,
-        poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
+        poster: (details.poster_path || m.poster_path) ? `https://image.tmdb.org/t/p/w500${details.poster_path || m.poster_path}` : '',
         overview: details.overview || m.overview || 'Aucun résumé disponible.',
         release_date: details.first_air_date || details.release_date || m.release_date || 'Inconnue',
-        vote_average: m.vote_average ? m.vote_average.toFixed(1) : 'N/A',
+        vote_average: (details.vote_average || m.vote_average) ? (details.vote_average || m.vote_average).toFixed(1) : 'N/A',
         runtime: runtimeStr,
         genres: genres || 'Général',
         director: director,
@@ -507,6 +509,7 @@
         if (data.results && data.results.length > 0) {
           grid.innerHTML = '';
           let maxCount = Math.min(data.results.length, 12);
+
           for (let idx = 0; idx < maxCount; idx++) {
             let tv = data.results[idx];
             let movieItem = await formatTmdbItem(tv, 'tv');
@@ -519,7 +522,7 @@
               let tagLabel = movieItem.episodeInfo.isNext ? 'Prochain' : 'Dernier';
               epHTML = `
                 <div class="ep-tag">
-                  <span class="ep-num">${tagLabel} : ${movieItem.episodeInfo.code}</span>
+                  <span class="ep-num">📌 ${tagLabel} : ${movieItem.episodeInfo.code}</span>
                   <div class="ep-title-text" title="${movieItem.episodeInfo.name}">${movieItem.episodeInfo.name}</div>
                 </div>
               `;
@@ -528,9 +531,9 @@
             let card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
-              <img src="${posterUrl}" alt="${tv.name}">
+              <img src="${posterUrl}" alt="${movieItem.title}">
               <div class="card-info">
-                <div class="card-title">${tv.name}</div>
+                <div class="card-title">${movieItem.title}</div>
                 <div style="font-size:0.75rem; color:#aaa;">⭐ ${movieItem.vote_average}/10</div>
                 ${epHTML}
               </div>
@@ -540,10 +543,11 @@
             grid.appendChild(card);
           }
         } else {
-          grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucune sortie trouvée.</p>';
+          grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucune série trouvée.</p>';
         }
       } catch (e) {
-        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur lors du chargement des séries J+7.</p>';
+        console.error(e);
+        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur de chargement.</p>';
       }
     }
 
