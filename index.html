@@ -383,49 +383,60 @@
     db.collection("movies").onSnapshot((snapshot) => {
       document.getElementById('debug-banner').style.display = 'none';
       localCollection = [];
+
       snapshot.forEach((doc) => {
         try {
           const data = doc.data() || {};
+
+          // 1. Image / Poster
+          let cleanPoster = '';
           let rawPoster = data.poster || data.image || data.poster_path || '';
-          let cleanPoster = rawPoster;
-          if (rawPoster && typeof rawPoster === 'string' && !rawPoster.startsWith('http')) {
-            cleanPoster = 'https://image.tmdb.org/t/p/w500' + rawPoster;
+          if (typeof rawPoster === 'string' && rawPoster.trim() !== '') {
+            cleanPoster = rawPoster.startsWith('http') ? rawPoster : 'https://image.tmdb.org/t/p/w500' + rawPoster;
           }
 
-          // Parsing Genres
+          // 2. Genres
           let parsedGenres = 'Général';
-          if (data.genres) {
-            parsedGenres = Array.isArray(data.genres) ? data.genres.join(', ') : String(data.genres);
-          } else if (data.genre) {
-            parsedGenres = Array.isArray(data.genre) ? data.genre.join(', ') : String(data.genre);
+          if (Array.isArray(data.genres)) {
+            parsedGenres = data.genres.join(', ');
+          } else if (Array.isArray(data.genre)) {
+            parsedGenres = data.genre.join(', ');
+          } else if (typeof data.genres === 'string' && data.genres) {
+            parsedGenres = data.genres;
+          } else if (typeof data.genre === 'string' && data.genre) {
+            parsedGenres = data.genre;
           }
 
-          // Parsing Réalisateur
+          // 3. Réalisateur
           let directorObj = { name: 'Inconnu', id: null };
           if (data.director) {
             if (typeof data.director === 'string') {
               directorObj.name = data.director;
-            } else if (typeof data.director === 'object' && data.director.name) {
-              directorObj = data.director;
+            } else if (typeof data.director === 'object' && data.director !== null) {
+              directorObj.name = data.director.name || 'Inconnu';
+              directorObj.id = data.director.id || null;
             }
           } else if (data.realisateur) {
             directorObj.name = String(data.realisateur);
           }
 
-          // Parsing Casting
+          // 4. Casting
           let parsedCast = [];
-          if (data.cast) {
-            if (Array.isArray(data.cast)) {
-              parsedCast = data.cast.map(c => typeof c === 'string' ? { name: c, id: null } : c);
-            } else if (typeof data.cast === 'string') {
-              parsedCast = data.cast.split(',').map(name => ({ name: name.trim(), id: null }));
-            }
+          if (Array.isArray(data.cast)) {
+            parsedCast = data.cast.map(c => {
+              if (typeof c === 'string') return { name: c, id: null };
+              if (typeof c === 'object' && c !== null) return { name: c.name || 'Inconnu', id: c.id || null };
+              return { name: 'Inconnu', id: null };
+            });
+          } else if (typeof data.cast === 'string' && data.cast) {
+            parsedCast = data.cast.split(',').map(name => ({ name: name.trim(), id: null }));
           }
 
+          // 5. Structure finale
           localCollection.push({
             docId: doc.id,
             id: data.id || null,
-            title: String(data.title || data.nom || data.titre || "Titre sans nom"),
+            title: String(data.title || data.nom || data.titre || "Titre inconnu"),
             poster: cleanPoster,
             format: String(data.format || "DVD"),
             genres: parsedGenres,
@@ -440,10 +451,12 @@
             imdb_url: data.imdb_url || null,
             isTV: Boolean(data.isTV || data.media_type === 'tv')
           });
+
         } catch (e) {
-          console.error("Erreur de parsing sur un document :", doc.id, e);
+          console.error("Document ignoré en raison d'une erreur de formatage (doc.id: " + doc.id + ") :", e);
         }
       });
+
       populateGenreDropdown();
       renderCollection();
       renderWishlist();
