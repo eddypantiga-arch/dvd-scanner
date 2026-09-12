@@ -52,6 +52,10 @@
       border: 1px solid #333;
       position: relative;
     }
+    .card.is-favorite {
+      border: 1px solid var(--imdb-yellow);
+      box-shadow: 0 0 10px rgba(245, 197, 24, 0.25);
+    }
     .card img {
       width: 100%;
       height: 230px;
@@ -128,6 +132,23 @@
     input, select { background: #2a2a2a; color: white; border: 1px solid #444; font-size: 1rem; }
     button.action-btn { background: var(--accent); color: white; font-weight: bold; font-size: 1rem; cursor: pointer; }
 
+    .btn-fav {
+      background: #333;
+      color: #aaa;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 5px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 5px 10px 0 10px;
+    }
+    .btn-fav.active {
+      background: var(--imdb-yellow);
+      color: #000;
+      border: 1px solid var(--imdb-yellow);
+    }
+
     .btn-mic {
       background: #27ae60; color: white; font-size: 1.1rem; font-weight: bold;
       padding: 18px; border: none; border-radius: 8px; width: 100%;
@@ -189,6 +210,7 @@
     }
     .ep-num { font-weight: bold; color: #38bdf8; font-size: 0.75rem; display: block; }
     .ep-title-text { color: #ddd; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+    .ep-date { color: #aaa; font-size: 0.68rem; margin-top: 4px; display: block; }
   </style>
 </head>
 <body>
@@ -228,7 +250,7 @@
       <div id="search-results" class="grid" style="margin-top:15px;"></div>
 
       <!-- BLOC SORTIES SÉRIES J+7 -->
-      <div class="section-title">📺 Épisodes diffusés dans les 7 jours (J+7)</div>
+      <div class="section-title">📺 Épisodes diffusés actuellement (J+7)</div>
       <div id="airing-today-grid" class="grid">
         <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des séries...</p>
       </div>
@@ -347,6 +369,7 @@
 
     let recognition = null;
     let localCollection = [];
+    let favoriteTvIds = [];
     let tmdbApiKey = "";
 
     db.collection("movies").onSnapshot((snapshot) => {
@@ -357,6 +380,15 @@
       populateGenreDropdown();
       renderCollection();
       renderWishlist();
+    });
+
+    db.collection("settings").doc("favorites").onSnapshot((doc) => {
+      if (doc.exists && doc.data().tvIds) {
+        favoriteTvIds = doc.data().tvIds;
+      } else {
+        favoriteTvIds = [];
+      }
+      loadAiringTodayTV();
     });
 
     db.collection("settings").doc("tmdb").onSnapshot((doc) => {
@@ -432,6 +464,15 @@
       return `${h}h ${m}m`;
     }
 
+    function formatDateFR(dateStr) {
+      if (!dateStr) return 'Inconnue';
+      let parts = dateStr.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      return dateStr;
+    }
+
     async function fetchMovieDetails(id, type) {
       try {
         let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&language=fr-FR&append_to_response=credits,external_ids`);
@@ -474,6 +515,7 @@
           epInfo = {
             code: `S${sNum}E${eNum}`,
             name: ep.name || 'Épisode sans titre',
+            airDate: ep.air_date || '',
             isNext: !!details.next_episode_to_air
           };
         }
@@ -498,6 +540,16 @@
       };
     }
 
+    async function toggleFavoriteTV(tvId) {
+      let index = favoriteTvIds.indexOf(tvId);
+      if (index > -1) {
+        favoriteTvIds.splice(index, 1);
+      } else {
+        favoriteTvIds.push(tvId);
+      }
+      await db.collection("settings").doc("favorites").set({ tvIds: favoriteTvIds });
+    }
+
     async function loadAiringTodayTV() {
       if (!tmdbApiKey) return;
       let grid = document.getElementById('airing-today-grid');
@@ -508,28 +560,49 @@
         
         if (data.results && data.results.length > 0) {
           grid.innerHTML = '';
-          let maxCount = Math.min(data.results.length, 12);
+          let maxCount = Math.min(data.results.length, 14);
 
+          let tvList = [];
           for (let idx = 0; idx < maxCount; idx++) {
             let tv = data.results[idx];
             let movieItem = await formatTmdbItem(tv, 'tv');
+            tvList.push(movieItem);
+          }
+
+          // TRI : Favoris d'abord, puis par date de diffusion récente
+          tvList.sort((a, b) => {
+            let isFavA = favoriteTvIds.includes(a.id);
+            let isFavB = favoriteTvIds.includes(b.id);
+            
+            if (isFavA && !isFavB) return -1;
+            if (!isFavA && isFavB) return 1;
+
+            let dateA = a.episodeInfo && a.episodeInfo.airDate ? a.episodeInfo.airDate : (a.release_date || '');
+            let dateB = b.episodeInfo && b.episodeInfo.airDate ? b.episodeInfo.airDate : (b.release_date || '');
+            return dateB.localeCompare(dateA);
+          });
+
+          tvList.forEach((movieItem, idx) => {
             window[`airingTV_${idx}`] = movieItem;
 
             let posterUrl = movieItem.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
+            let isFav = favoriteTvIds.includes(movieItem.id);
 
             let epHTML = '';
             if (movieItem.episodeInfo) {
               let tagLabel = movieItem.episodeInfo.isNext ? 'Prochain' : 'Dernier';
+              let formattedAirDate = formatDateFR(movieItem.episodeInfo.airDate);
               epHTML = `
                 <div class="ep-tag">
                   <span class="ep-num">📌 ${tagLabel} : ${movieItem.episodeInfo.code}</span>
                   <div class="ep-title-text" title="${movieItem.episodeInfo.name}">${movieItem.episodeInfo.name}</div>
+                  <span class="ep-date">📅 Diffusé le : ${formattedAirDate}</span>
                 </div>
               `;
             }
 
             let card = document.createElement('div');
-            card.className = 'card';
+            card.className = `card ${isFav ? 'is-favorite' : ''}`;
             card.innerHTML = `
               <img src="${posterUrl}" alt="${movieItem.title}">
               <div class="card-info">
@@ -537,11 +610,14 @@
                 <div style="font-size:0.75rem; color:#aaa;">⭐ ${movieItem.vote_average}/10</div>
                 ${epHTML}
               </div>
+              <button class="btn-fav ${isFav ? 'active' : ''}" onclick="toggleFavoriteTV(${movieItem.id})">
+                ${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}
+              </button>
               <button class="action-btn" style="margin:5px 10px;" onclick='addAiringToCollection(${idx}, false)'>+ Collection</button>
               <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='addAiringToCollection(${idx}, true)'>💡 Envies</button>
             `;
             grid.appendChild(card);
-          }
+          });
         } else {
           grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucune série trouvée.</p>';
         }
@@ -730,7 +806,7 @@
         castEl.innerText = 'Non renseigné';
       }
 
-      document.getElementById('modal-date').innerText = movie.release_date;
+      document.getElementById('modal-date').innerText = formatDateFR(movie.release_date);
       document.getElementById('modal-rating').innerText = movie.vote_average;
       document.getElementById('modal-overview').innerText = movie.overview;
       
