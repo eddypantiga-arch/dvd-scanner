@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DVDthèque Cloud</title>
   
-  <!-- SDK Firebase 9 (Version Compatibilité pour HTML classique) -->
+  <!-- SDK Firebase 9 (Compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
@@ -37,6 +37,17 @@
     .container { padding: 15px; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+
+    #debug-banner {
+      display: none;
+      background: #c0392b;
+      color: white;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      word-break: break-all;
+    }
     
     .grid {
       display: grid;
@@ -207,6 +218,8 @@
   <header>🎬 DVDthèque Cloud</header>
 
   <div class="container">
+    <div id="debug-banner"></div>
+
     <div class="selector-box">
       <div>
         <label>Type d'élément :</label>
@@ -342,7 +355,12 @@
   </nav>
 
   <script>
-    // Configuration Firebase globale
+    function displayErrorOniPhone(msg) {
+      let banner = document.getElementById('debug-banner');
+      banner.style.display = 'block';
+      banner.innerHTML = '⚠️ <strong>Erreur Firebase :</strong> ' + msg;
+    }
+
     const firebaseConfig = {
       apiKey: "AIzaSyABV3JlLUv2gBksRgwSdOBo9MKWPE1s2ZU",
       authDomain: "dvdtheque-6a431.firebaseapp.com",
@@ -353,7 +371,6 @@
       measurementId: "G-C75SM4T13P"
     };
 
-    // Initialisation Firebase pour navigateur classique
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
@@ -362,16 +379,23 @@
     let favoriteTvIds = [];
     let tmdbApiKey = "";
 
-    // Synchro dynamique de la collection
+    // Lecture Firestore avec secours de données
     db.collection("movies").onSnapshot((snapshot) => {
+      document.getElementById('debug-banner').style.display = 'none';
       localCollection = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
+        let rawPoster = data.poster || data.image || data.poster_path || '';
+        let cleanPoster = rawPoster;
+        if (rawPoster && !rawPoster.startsWith('http')) {
+          cleanPoster = 'https://image.tmdb.org/t/p/w500' + rawPoster;
+        }
+
         localCollection.push({
           docId: doc.id,
           id: data.id || null,
-          title: data.title || data.nom || data.titre || "Titre inconnu",
-          poster: data.poster || data.image || data.poster_path || '',
+          title: data.title || data.nom || data.titre || "Titre sans nom",
+          poster: cleanPoster,
           format: data.format || "DVD",
           genres: data.genres || 'Général',
           runtime: data.runtime || 'N/A',
@@ -390,7 +414,7 @@
       renderCollection();
       renderWishlist();
     }, (error) => {
-      console.error("Erreur d'accès à la base :", error);
+      displayErrorOniPhone(error.message);
     });
 
     db.collection("settings").doc("favorites").onSnapshot((doc) => {
@@ -400,6 +424,8 @@
         favoriteTvIds = [];
       }
       loadAiringTodayTV();
+    }, (error) => {
+      console.log(error);
     });
 
     db.collection("settings").doc("tmdb").onSnapshot((doc) => {
@@ -408,6 +434,8 @@
         document.getElementById('api-key-input').value = tmdbApiKey;
         loadAiringTodayTV();
       }
+    }, (error) => {
+      console.log(error);
     });
 
     function getSelectedFormat() { return document.getElementById('scan-format').value; }
@@ -423,7 +451,7 @@
 
     function toggleVoiceInput() {
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        alert("La dictée vocale n'est pas gérée par votre navigateur.");
+        alert("La dictée vocale n'est pas gérée par Safari iOS. Tapez votre recherche.");
         return;
       }
 
@@ -646,8 +674,6 @@
       }
 
       let movieToSave = { ...movie, format: finalFormat, isWishlist: isWishlist };
-      
-      // On retire les objets complexes temporaires d'affichage réseau
       delete movieToSave.episodeInfo;
 
       let exists = localCollection.some(item => 
@@ -744,7 +770,7 @@
       grid.innerHTML = '';
 
       if (filtered.length === 0) {
-        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa; margin-top:20px;">Aucun élément trouvé.</p>';
+        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa; margin-top:20px;">Aucun élément trouvé dans la collection.</p>';
         return;
       }
 
