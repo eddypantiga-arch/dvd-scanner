@@ -251,7 +251,7 @@
       <p id="search-status" style="text-align:center; color:#ffca28; font-weight:bold; margin-top:10px;"></p>
       <div id="search-results" class="grid" style="margin-top:15px;"></div>
 
-      <div class="section-title">📺 Épisodes diffusés actuellement (Favoris & Tendances)</div>
+      <div class="section-title">📺 Épisodes diffusés actuellement (J+7)</div>
       <div id="airing-today-grid" class="grid">
         <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des séries...</p>
       </div>
@@ -379,59 +379,53 @@
     let favoriteTvIds = [];
     let tmdbApiKey = "";
 
-    // Synchronisation Firestore
+    // Lecture Firestore ultra-sécurisée contre les erreurs de types
     db.collection("movies").onSnapshot((snapshot) => {
       document.getElementById('debug-banner').style.display = 'none';
       localCollection = [];
-
       snapshot.forEach((doc) => {
         try {
           const data = doc.data() || {};
-
-          let cleanPoster = '';
           let rawPoster = data.poster || data.image || data.poster_path || '';
-          if (typeof rawPoster === 'string' && rawPoster.trim() !== '') {
-            cleanPoster = rawPoster.startsWith('http') ? rawPoster : 'https://image.tmdb.org/t/p/w500' + rawPoster;
+          let cleanPoster = rawPoster;
+          if (rawPoster && typeof rawPoster === 'string' && !rawPoster.startsWith('http')) {
+            cleanPoster = 'https://image.tmdb.org/t/p/w500' + rawPoster;
           }
 
+          // Parsing Genres
           let parsedGenres = 'Général';
-          if (Array.isArray(data.genres)) {
-            parsedGenres = data.genres.join(', ');
-          } else if (Array.isArray(data.genre)) {
-            parsedGenres = data.genre.join(', ');
-          } else if (typeof data.genres === 'string' && data.genres) {
-            parsedGenres = data.genres;
-          } else if (typeof data.genre === 'string' && data.genre) {
-            parsedGenres = data.genre;
+          if (data.genres) {
+            parsedGenres = Array.isArray(data.genres) ? data.genres.join(', ') : String(data.genres);
+          } else if (data.genre) {
+            parsedGenres = Array.isArray(data.genre) ? data.genre.join(', ') : String(data.genre);
           }
 
+          // Parsing Réalisateur
           let directorObj = { name: 'Inconnu', id: null };
           if (data.director) {
             if (typeof data.director === 'string') {
               directorObj.name = data.director;
-            } else if (typeof data.director === 'object' && data.director !== null) {
-              directorObj.name = data.director.name || 'Inconnu';
-              directorObj.id = data.director.id || null;
+            } else if (typeof data.director === 'object' && data.director.name) {
+              directorObj = data.director;
             }
           } else if (data.realisateur) {
             directorObj.name = String(data.realisateur);
           }
 
+          // Parsing Casting
           let parsedCast = [];
-          if (Array.isArray(data.cast)) {
-            parsedCast = data.cast.map(c => {
-              if (typeof c === 'string') return { name: c, id: null };
-              if (typeof c === 'object' && c !== null) return { name: c.name || 'Inconnu', id: c.id || null };
-              return { name: 'Inconnu', id: null };
-            });
-          } else if (typeof data.cast === 'string' && data.cast) {
-            parsedCast = data.cast.split(',').map(name => ({ name: name.trim(), id: null }));
+          if (data.cast) {
+            if (Array.isArray(data.cast)) {
+              parsedCast = data.cast.map(c => typeof c === 'string' ? { name: c, id: null } : c);
+            } else if (typeof data.cast === 'string') {
+              parsedCast = data.cast.split(',').map(name => ({ name: name.trim(), id: null }));
+            }
           }
 
           localCollection.push({
             docId: doc.id,
             id: data.id || null,
-            title: String(data.title || data.nom || data.titre || "Titre inconnu"),
+            title: String(data.title || data.nom || data.titre || "Titre sans nom"),
             poster: cleanPoster,
             format: String(data.format || "DVD"),
             genres: parsedGenres,
@@ -446,12 +440,10 @@
             imdb_url: data.imdb_url || null,
             isTV: Boolean(data.isTV || data.media_type === 'tv')
           });
-
         } catch (e) {
-          console.error("Document ignoré :", e);
+          console.error("Erreur de parsing sur un document :", doc.id, e);
         }
       });
-
       populateGenreDropdown();
       renderCollection();
       renderWishlist();
@@ -466,7 +458,6 @@
         favoriteTvIds = [];
       }
       loadAiringTodayTV();
-      renderSearchResultsFavorites();
     }, (error) => {
       console.log(error);
     });
@@ -494,7 +485,7 @@
 
     function toggleVoiceInput() {
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        alert("La dictée vocale n'est pas gérée par votre navigateur.");
+        alert("La dictée vocale n'est pas gérée par votre navigateur. Veuillez taper votre recherche.");
         return;
       }
 
@@ -571,6 +562,7 @@
       let details = await fetchMovieDetails(m.id, typeEndpoint);
 
       let titleName = isTV ? (details.name || m.name || m.original_name) : (isCollectionType ? (details.name || m.name || m.title) : (details.title || m.title));
+
       let genres = details.genres ? details.genres.map(g => g.name).join(', ') : 'N/A';
       let director = { name: 'Inconnu', id: null };
       let cast = [];
@@ -631,59 +623,37 @@
       await db.collection("settings").doc("favorites").set({ tvIds: favoriteTvIds });
     }
 
-    function renderSearchResultsFavorites() {
-      document.querySelectorAll('.btn-fav-search').forEach(btn => {
-        let id = parseInt(btn.getAttribute('data-tvid'));
-        let isFav = favoriteTvIds.includes(id);
-        if (isFav) {
-          btn.classList.add('active');
-          btn.innerHTML = '⭐ Favori !';
-        } else {
-          btn.classList.remove('active');
-          btn.innerHTML = '☆ Mettre en fav';
-        }
-      });
-    }
-
     async function loadAiringTodayTV() {
       if (!tmdbApiKey) return;
       let grid = document.getElementById('airing-today-grid');
       
       try {
-        let favoritesData = [];
-        for (let favId of favoriteTvIds) {
-          let favItem = await formatTmdbItem({ id: favId }, 'tv');
-          favoritesData.push(favItem);
-        }
-
-        // Tri des favoris par ordre de diffusion (du plus récent au plus ancien)
-        favoritesData.sort((a, b) => {
-          let dateA = a.episodeInfo && a.episodeInfo.airDate ? a.episodeInfo.airDate : (a.release_date || '');
-          let dateB = b.episodeInfo && b.episodeInfo.airDate ? b.episodeInfo.airDate : (b.release_date || '');
-          return dateB.localeCompare(dateA);
-        });
-
-        // Récupération des séries actuellement en diffusion
         let res = await fetch(`https://api.themoviedb.org/3/tv/on_the_air?api_key=${tmdbApiKey}&language=fr-FR&page=1`);
         let data = await res.json();
         
-        let trendingData = [];
         if (data.results && data.results.length > 0) {
-          for (let tv of data.results) {
-            if (!favoriteTvIds.includes(tv.id)) {
-              let tvItem = await formatTmdbItem(tv, 'tv');
-              trendingData.push(tvItem);
-            }
-          }
-          // Tri des tendances par meilleure note (mieux notées d'abord)
-          trendingData.sort((a, b) => parseFloat(b.vote_average || 0) - parseFloat(a.vote_average || 0));
-        }
-
-        let combinedList = [...favoritesData, ...trendingData];
-
-        if (combinedList.length > 0) {
           grid.innerHTML = '';
-          combinedList.forEach((movieItem, idx) => {
+          let maxCount = Math.min(data.results.length, 14);
+
+          let tvList = [];
+          for (let idx = 0; idx < maxCount; idx++) {
+            let tv = data.results[idx];
+            let movieItem = await formatTmdbItem(tv, 'tv');
+            tvList.push(movieItem);
+          }
+
+          tvList.sort((a, b) => {
+            let isFavA = favoriteTvIds.includes(a.id);
+            let isFavB = favoriteTvIds.includes(b.id);
+            if (isFavA && !isFavB) return -1;
+            if (!isFavA && isFavB) return 1;
+
+            let dateA = a.episodeInfo && a.episodeInfo.airDate ? a.episodeInfo.airDate : (a.release_date || '');
+            let dateB = b.episodeInfo && b.episodeInfo.airDate ? b.episodeInfo.airDate : (b.release_date || '');
+            return dateB.localeCompare(dateA);
+          });
+
+          tvList.forEach((movieItem, idx) => {
             window[`airingTV_${idx}`] = movieItem;
 
             let posterUrl = movieItem.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
@@ -967,16 +937,7 @@
           window[`searchResult_${idx}`] = movie;
 
           let seasonSelectorHTML = '';
-          let favBtnHTML = '';
-
           if (movie.isTV) {
-            let isFav = favoriteTvIds.includes(movie.id);
-            favBtnHTML = `
-              <button data-tvid="${movie.id}" class="btn-fav btn-fav-search ${isFav ? 'active' : ''}" onclick="toggleFavoriteTV(${movie.id})">
-                ${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}
-              </button>
-            `;
-
             seasonSelectorHTML = `<div style="padding:0 10px;"><select id="season-select-${idx}" style="font-size:0.8rem; padding:6px; margin-top:5px;">`;
             seasonSelectorHTML += `<option value="Intégrale (Saisons 1 à ${movie.seasonsCount})">📦 Intégrale (Saisons 1 à ${movie.seasonsCount})</option>`;
             for (let s = 1; s <= movie.seasonsCount; s++) {
@@ -986,12 +947,11 @@
           }
 
           let card = document.createElement('div');
-          card.className = `card ${movie.isTV && favoriteTvIds.includes(movie.id) ? 'is-favorite' : ''}`;
+          card.className = 'card';
           card.innerHTML = `
             <img id="img-result-${idx}" src="${movie.poster || 'https://via.placeholder.com/150x220'}" alt="${movie.title}">
             <div class="card-info"><div class="card-title">${movie.title}</div></div>
             ${seasonSelectorHTML}
-            ${favBtnHTML}
             <button style="background:#444; color:white; border:none; padding:6px; margin:5px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;" onclick="openPosterGallery(${movie.id}, ${idx})">🔄 Jaquette</button>
             <button class="action-btn" style="margin:5px 10px;" onclick='triggerAddMovie(${idx}, false)'>+ Collection</button>
             <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='triggerAddMovie(${idx}, true)'>💡 Liste d'envies</button>
