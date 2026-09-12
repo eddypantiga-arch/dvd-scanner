@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DVDthèque Cloud</title>
   
-  <!-- Firebase SDK Compat v9 -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
@@ -17,182 +16,46 @@
       --text: #ffffff;
       --text-sub: #aaaaaa;
     }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-color); color: var(--text); padding-bottom: 80px; }
+    header { background: #000; padding: 15px; text-align: center; font-weight: bold; font-size: 1.1rem; border-bottom: 1px solid #333; color: var(--accent); position: sticky; top: 0; z-index: 100; }
+    .container { padding: 15px; max-width: 800px; margin: 0 auto; }
     
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text);
-      padding-bottom: 80px;
-    }
+    #status-banner { background: #f39c12; color: #000; padding: 10px; margin-bottom: 15px; border-radius: 8px; font-size: 0.85rem; text-align: center; font-weight: bold; }
+    
+    .add-box, .filter-box { background: #1a1a1a; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px; }
+    
+    input, select, button.action-btn { width: 100%; padding: 12px; margin-top: 8px; border-radius: 6px; border: none; font-size: 0.95rem; }
+    input, select { background: #2a2a2a; color: #fff; border: 1px solid #444; }
+    button.action-btn { background: var(--accent); color: #fff; font-weight: bold; cursor: pointer; }
+    
+    .flex-row { display: flex; gap: 8px; align-items: center; }
+    .btn-mic { width: 50px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 12px; font-size: 1.1rem; cursor: pointer; text-align: center; }
+    .btn-mic.recording { background: var(--accent); animation: pulse 1s infinite; }
 
-    header {
-      background-color: #000000;
-      padding: 15px;
-      text-align: center;
-      font-weight: bold;
-      font-size: 1.1rem;
-      border-bottom: 1px solid #333333;
-      color: var(--accent);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-    .container {
-      padding: 15px;
-      max-width: 800px;
-      margin: 0 auto;
-    }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    @media (min-width: 600px) { .grid { grid-template-columns: repeat(3, 1fr); } }
 
-    .tab-content {
-      display: none;
-    }
+    .card { background: var(--card-bg); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #333; position: relative; }
+    .card img { width: 100%; height: 220px; object-fit: cover; background: #2a2a2a; }
+    .card-info { padding: 10px; flex-grow: 1; }
+    .card-title { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; word-break: break-word; }
+    .card-meta { font-size: 0.75rem; color: var(--text-sub); }
+    
+    .badge-type { position: absolute; top: 8px; left: 8px; padding: 3px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold; color: #fff; background: rgba(0,0,0,0.8); }
+    .badge-format { position: absolute; top: 8px; right: 8px; padding: 3px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold; color: #fff; background: rgba(229,9,20,0.85); }
 
-    .tab-content.active {
-      display: block;
-    }
+    .btn-delete { background: #c0392b; color: #fff; border: none; padding: 8px; margin: 5px 10px 10px 10px; border-radius: 5px; font-weight: bold; cursor: pointer; }
 
-    #status-banner {
-      background: #f39c12;
-      color: #000000;
-      padding: 10px;
-      margin-bottom: 15px;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      text-align: center;
-      font-weight: bold;
-      transition: background 0.3s;
-    }
-
-    .add-box {
-      background: #1a1a1a;
-      padding: 15px;
-      border-radius: 8px;
-      border: 1px solid #333333;
-      margin-bottom: 20px;
-    }
-
-    input, select, button.action-btn {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      border-radius: 6px;
-      border: none;
-      font-size: 1rem;
-    }
-
-    input, select {
-      background: #2a2a2a;
-      color: #ffffff;
-      border: 1px solid #444444;
-    }
-
-    button.action-btn {
-      background: var(--accent);
-      color: #ffffff;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 15px;
-    }
-
-    @media (min-width: 600px) {
-      .grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    .card {
-      background: var(--card-bg);
-      border-radius: 8px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      border: 1px solid #333333;
-      position: relative;
-    }
-
-    .card img {
-      width: 100%;
-      height: 220px;
-      object-fit: cover;
-      background-color: #2a2a2a;
-    }
-
-    .card-info {
-      padding: 10px;
-      flex-grow: 1;
-    }
-
-    .card-title {
-      font-weight: bold;
-      font-size: 0.9rem;
-      margin-bottom: 5px;
-      word-break: break-word;
-    }
-
-    .badge-format {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: bold;
-      color: #ffffff;
-      background: rgba(0,0,0,0.75);
-      backdrop-filter: blur(4px);
-    }
-
-    .btn-delete {
-      background: #c0392b;
-      color: #ffffff;
-      border: none;
-      padding: 8px;
-      margin: 5px 10px 10px 10px;
-      border-radius: 5px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: #000000;
-      display: flex;
-      justify-content: space-around;
-      border-top: 1px solid #333333;
-      padding: 10px 0;
-      z-index: 99;
-    }
-
-    nav button {
-      background: none;
-      border: none;
-      color: var(--text-sub);
-      font-size: 0.75rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      cursor: pointer;
-    }
-
-    nav button.active {
-      color: var(--accent);
-    }
+    nav { position: fixed; bottom: 0; left: 0; right: 0; background: #000; display: flex; justify-content: space-around; border-top: 1px solid #333; padding: 10px 0; z-index: 99; }
+    nav button { background: none; border: none; color: var(--text-sub); font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+    nav button.active { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -205,52 +68,95 @@
     <!-- TAB COLLECTION -->
     <div id="tab-collection" class="tab-content active">
       
-      <!-- Ajout manuel direct dans la base -->
+      <!-- Barre de recherche & Filtres -->
+      <div class="filter-box">
+        <div class="flex-row">
+          <input type="text" id="filter-input" placeholder="🔎 Rechercher un titre..." onkeyup="renderCollection()">
+          <button class="btn-mic" id="mic-filter-btn" onclick="startVoiceSearch('filter-input', renderCollection)" title="Recherche vocale">🎤</button>
+        </div>
+        
+        <div class="flex-row" style="margin-top: 8px;">
+          <select id="filter-type" onchange="renderCollection()">
+            <option value="ALL">Tous les types (Films & Séries)</option>
+            <option value="movie">Films uniquement</option>
+            <option value="tv">Séries uniquement</option>
+          </select>
+          <select id="filter-genre" onchange="renderCollection()">
+            <option value="ALL">Tous les genres</option>
+          </select>
+        </div>
+
+        <div class="flex-row" style="margin-top: 8px;">
+          <select id="sort-order" onchange="renderCollection()">
+            <option value="alpha">Tri : Alphabetique (A-Z)</option>
+            <option value="alpha-desc">Tri : Alphabétique (Z-A)</option>
+            <option value="date-desc">Tri : Derniers ajoutés</option>
+            <option value="date-asc">Tri : Premiers ajoutés</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Ajout manuel -->
       <div class="add-box">
-        <h3 style="margin-bottom: 5px;">➕ Ajouter un titre en direct</h3>
-        <input type="text" id="manual-title" placeholder="Ex: Matrix, Inception...">
-        <select id="manual-format">
-          <option value="4K UHD" selected>💜 4K Ultra HD</option>
-          <option value="Blu-ray">🟦 Blu-ray</option>
-          <option value="DVD">📀 DVD</option>
-        </select>
+        <h4 style="margin-bottom: 5px;">➕ Ajout direct</h4>
+        <div class="flex-row">
+          <input type="text" id="manual-title" placeholder="Titre du film ou de la série">
+          <button class="btn-mic" id="mic-add-btn" onclick="startVoiceSearch('manual-title')" title="Saisie vocale">🎤</button>
+        </div>
+        <div class="flex-row" style="margin-top: 5px;">
+          <select id="manual-type">
+            <option value="movie">🎬 Film</option>
+            <option value="tv">📺 Série</option>
+          </select>
+          <select id="manual-format">
+            <option value="4K UHD" selected>💜 4K UHD</option>
+            <option value="Blu-ray">🟦 Blu-ray</option>
+            <option value="DVD">📀 DVD</option>
+          </select>
+        </div>
         <button class="action-btn" onclick="addManualMovie()">Ajouter à la base</button>
       </div>
 
-      <!-- Filtre local de recherche -->
-      <input type="text" id="filter-input" placeholder="🔎 Filtrer la liste affichée..." onkeyup="renderCollection()">
-
-      <h3 id="collection-count" style="margin: 20px 0 10px 0;">Ma Collection (0)</h3>
+      <h3 id="collection-count" style="margin: 15px 0 10px 0;">Ma Collection (0)</h3>
       <div id="collection-grid" class="grid"></div>
     </div>
 
     <!-- TAB RECHERCHE TMDB -->
     <div id="tab-search" class="tab-content">
-      <div style="display:flex; gap:5px;">
-        <input type="text" id="search-input" placeholder="Rechercher sur TMDB..." onkeyup="if(event.key==='Enter') searchTMDB()">
-        <button onclick="searchTMDB()" style="background:var(--accent); color:white; border:none; border-radius:6px; padding:10px 15px; font-weight:bold; cursor:pointer;">🔍</button>
+      <div class="filter-box">
+        <div class="flex-row">
+          <input type="text" id="search-input" placeholder="Rechercher sur TMDB..." onkeyup="if(event.key==='Enter') searchTMDB()">
+          <button class="btn-mic" id="mic-search-btn" onclick="startVoiceSearch('search-input', searchTMDB)" title="Recherche vocale">🎤</button>
+          <button onclick="searchTMDB()" style="background:var(--accent); color:white; border:none; border-radius:6px; padding:12px 15px; font-weight:bold; cursor:pointer;">🔍</button>
+        </div>
+        <div class="flex-row" style="margin-top: 8px;">
+          <select id="search-type">
+            <option value="multi">Films & Séries</option>
+            <option value="movie">Films seulement</option>
+            <option value="tv">Séries seulement</option>
+          </select>
+        </div>
       </div>
-      <div id="search-results" class="grid" style="margin-top:15px;"></div>
+      <div id="search-results" class="grid"></div>
     </div>
 
     <!-- TAB CONFIGURATION -->
     <div id="tab-api" class="tab-content">
       <h3>Configuration Clé API TMDB</h3>
-      <p style="font-size:0.85rem; color:var(--text-sub); margin-top:5px;">Enregistre ta clé pour activer la recherche avec affiches.</p>
+      <p style="font-size:0.85rem; color:var(--text-sub); margin:5px 0 10px 0;">Nécessaire pour récupérer automatiquement les cartes, affiches et genres.</p>
       <input type="text" id="api-key-input" placeholder="Colle ta clé API TMDB ici">
-      <button class="action-btn" onclick="saveApiKey()">Enregistrer dans le Cloud</button>
+      <button class="action-btn" onclick="saveApiKey()">Enregistrer la clé</button>
     </div>
   </div>
 
-  <!-- BARRE DE NAVIGATION -->
+  <!-- NAVIGATION -->
   <nav>
     <button onclick="switchTab('collection')" id="nav-collection" class="active">📚 <span>Collection</span></button>
-    <button onclick="switchTab('search')" id="nav-search">🔍 <span>Recherche</span></button>
+    <button onclick="switchTab('search')" id="nav-search">🔍 <span>TMDB</span></button>
     <button onclick="switchTab('api')" id="nav-api">⚙️ <span>Clé API</span></button>
   </nav>
 
   <script>
-    // Configuration de ton projet Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyABV3JlLUv2gBksRgwSdOBo9MKWPE1s2ZU",
       authDomain: "dvdtheque-6a431.firebaseapp.com",
@@ -260,28 +166,35 @@
       appId: "1:1024820482868:web:8be06d09827f7a5bfecb61"
     };
 
-    // Initialisation
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
     let localCollection = [];
     let tmdbApiKey = "";
+    let genresMap = {};
 
-    // Écoute dynamique de la collection 'movies'
+    // 1. Écoute dynamique de la base Firestore
     db.collection("movies").onSnapshot((snapshot) => {
       let banner = document.getElementById('status-banner');
       banner.style.background = '#27ae60';
-      banner.style.color = '#ffffff';
-      banner.innerText = `✅ Connecté : ${snapshot.docs.length} élément(s) détecté(s)`;
+      banner.style.color = '#fff';
+      banner.innerText = `✅ Connecté : ${snapshot.docs.length} élément(s) en base`;
 
       localCollection = [];
+      let genreSet = new Set();
+
       snapshot.forEach((doc) => {
         const data = doc.data();
-        
-        // Sécurisation de la lecture des propriétés
         let title = data.title || data.titre || data.nom || "Sans titre";
         let format = data.format || "DVD";
+        let type = data.media_type || data.type || (data.name ? "tv" : "movie");
         let poster = data.poster || data.poster_path || data.image || "";
+        let genres = data.genres || data.genre || [];
+        let createdAt = data.createdAt ? data.createdAt.toDate() : new Date(0);
+
+        if (typeof genres === 'string') genres = [genres];
+
+        genres.forEach(g => genreSet.add(g));
 
         if (poster && !poster.startsWith('http')) {
           poster = 'https://image.tmdb.org/t/p/w500' + poster;
@@ -291,152 +204,235 @@
           docId: doc.id,
           title: title,
           format: format,
-          poster: poster
+          type: type,
+          poster: poster,
+          genres: genres,
+          createdAt: createdAt
         });
       });
 
+      updateGenreDropdown(Array.from(genreSet));
       renderCollection();
     }, (error) => {
       let banner = document.getElementById('status-banner');
       banner.style.background = '#c0392b';
-      banner.style.color = '#ffffff';
+      banner.style.color = '#fff';
       banner.innerText = "❌ Erreur de connexion : " + error.message;
     });
 
-    // Chargement dynamique de la clé TMDB
+    // 2. Charger la clé API TMDB
     db.collection("settings").doc("tmdb").onSnapshot((doc) => {
       if (doc.exists && doc.data().key) {
         tmdbApiKey = doc.data().key;
         document.getElementById('api-key-input').value = tmdbApiKey;
+        fetchTMDBGenres();
       }
     });
 
-    // Changement d'onglet
-    function switchTab(tabName) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
-      document.getElementById('tab-' + tabName).classList.add('active');
-      document.getElementById('nav-' + tabName).classList.add('active');
+    // 3. Charger le dictionnaire des genres depuis TMDB
+    async function fetchTMDBGenres() {
+      if (!tmdbApiKey) return;
+      try {
+        let resM = await fetch(`https://api.themoviedb.org/3/genre/movie/list?api_key=${tmdbApiKey}&language=fr-FR`);
+        let dataM = await resM.json();
+        let resT = await fetch(`https://api.themoviedb.org/3/genre/tv/list?api_key=${tmdbApiKey}&language=fr-FR`);
+        let dataT = await resT.json();
+
+        if (dataM.genres) dataM.genres.forEach(g => genresMap[g.id] = g.name);
+        if (dataT.genres) dataT.genres.forEach(g => genresMap[g.id] = g.name);
+      } catch(e) { console.log("Erreur genres:", e); }
     }
 
-    // Affichage des éléments filtrés ou complets
+    // 4. Recherche Vocale (Web Speech API)
+    function startVoiceSearch(inputId, callback) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return alert("La reconnaissance vocale n'est pas supportée sur ce navigateur.");
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'fr-FR';
+      recognition.interimResults = false;
+
+      let btn = event.currentTarget;
+      btn.classList.add('recording');
+
+      recognition.onresult = (e) => {
+        let text = e.results[0][0].transcript;
+        // Nettoyage de la ponctuation éventuelle
+        if (text.endsWith('.')) text = text.slice(0, -1);
+        document.getElementById(inputId).value = text;
+        btn.classList.remove('recording');
+        if (callback) callback();
+      };
+
+      recognition.onerror = () => btn.classList.remove('recording');
+      recognition.onend = () => btn.classList.remove('recording');
+
+      recognition.start();
+    }
+
+    // 5. Mise à jour de la liste déroulante des genres
+    function updateGenreDropdown(genresList) {
+      let select = document.getElementById('filter-genre');
+      let currentVal = select.value;
+      select.innerHTML = '<option value="ALL">Tous les genres</option>';
+      genresList.sort().forEach(g => {
+        if(g) select.innerHTML += `<option value="${g}">${g}</option>`;
+      });
+      select.value = currentVal;
+    }
+
+    // 6. Rendu et filtrage dynamique de la collection
     function renderCollection() {
-      let filterText = document.getElementById('filter-input').value.toLowerCase().trim();
-      let filtered = localCollection.filter(m => m.title.toLowerCase().includes(filterText));
+      let query = document.getElementById('filter-input').value.toLowerCase().trim();
+      let selectedType = document.getElementById('filter-type').value;
+      let selectedGenre = document.getElementById('filter-genre').value;
+      let sortOrder = document.getElementById('sort-order').value;
+
+      let filtered = localCollection.filter(item => {
+        let matchesQuery = item.title.toLowerCase().includes(query);
+        let matchesType = (selectedType === 'ALL') || (item.type === selectedType);
+        let matchesGenre = (selectedGenre === 'ALL') || (item.genres && item.genres.includes(selectedGenre));
+        return matchesQuery && matchesType && matchesGenre;
+      });
+
+      // Tri
+      filtered.sort((a, b) => {
+        if (sortOrder === 'alpha') return a.title.localeCompare(b.title);
+        if (sortOrder === 'alpha-desc') return b.title.localeCompare(a.title);
+        if (sortOrder === 'date-desc') return b.createdAt - a.createdAt;
+        if (sortOrder === 'date-asc') return a.createdAt - b.createdAt;
+      });
 
       document.getElementById('collection-count').innerText = `Ma Collection (${filtered.length})`;
       let grid = document.getElementById('collection-grid');
       grid.innerHTML = '';
 
       if (filtered.length === 0) {
-        grid.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; color:#aaa; padding:20px 0;">Aucun film trouvé.</p>';
+        grid.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; color:#aaa; padding:20px 0;">Aucun élément trouvé.</p>';
         return;
       }
 
-      filtered.forEach((movie) => {
-        let posterUrl = movie.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
-        
+      filtered.forEach((item) => {
+        let posterUrl = item.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
+        let typeBadge = item.type === 'tv' ? '📺 Série' : '🎬 Film';
+        let genreText = item.genres && item.genres.length ? item.genres.join(', ') : 'Non classé';
+
         let card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
-          <span class="badge-format">${movie.format}</span>
-          <img src="${posterUrl}" alt="${movie.title}">
+          <span class="badge-type">${typeBadge}</span>
+          <span class="badge-format">${item.format}</span>
+          <img src="${posterUrl}" alt="${item.title}">
           <div class="card-info">
-            <div class="card-title">${movie.title}</div>
+            <div class="card-title">${item.title}</div>
+            <div class="card-meta">${genreText}</div>
           </div>
-          <button class="btn-delete" onclick="deleteMovie('${movie.docId}')">Supprimer</button>
+          <button class="btn-delete" onclick="deleteMovie('${item.docId}')">Supprimer</button>
         `;
         grid.appendChild(card);
       });
     }
 
-    // Ajout direct dans Firestore
+    // 7. Ajout manuel
     async function addManualMovie() {
       let title = document.getElementById('manual-title').value.trim();
       let format = document.getElementById('manual-format').value;
+      let type = document.getElementById('manual-type').value;
 
-      if (!title) return alert("Écris au moins un titre !");
+      if (!title) return alert("Saisis un titre !");
 
       try {
         await db.collection("movies").add({
           title: title,
           format: format,
+          media_type: type,
           createdAt: new Date()
         });
         document.getElementById('manual-title').value = '';
-      } catch(err) {
-        alert("Erreur lors de l'ajout : " + err.message);
-      }
+      } catch(err) { alert("Erreur d'ajout : " + err.message); }
     }
 
-    // Suppression d'un document
+    // 8. Suppression
     async function deleteMovie(docId) {
-      if (confirm("Supprimer ce titre définitivement ?")) {
-        try {
-          await db.collection("movies").doc(docId).delete();
-        } catch(err) {
-          alert("Erreur de suppression : " + err.message);
-        }
+      if (confirm("Supprimer cet élément de ta base ?")) {
+        await db.collection("movies").doc(docId).delete();
       }
     }
 
-    // Recherche via API TMDB
+    // 9. Recherche TMDB (Films & Séries)
     async function searchTMDB() {
       let query = document.getElementById('search-input').value.trim();
-      if (!tmdbApiKey) return alert("Renseigne d'abord ta clé API TMDB dans l'onglet Clé API !");
+      let type = document.getElementById('search-type').value;
+
+      if (!tmdbApiKey) return alert("Entre ta clé API TMDB dans l'onglet Clé API !");
       if (!query) return;
 
       try {
-        let res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${tmdbApiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
+        let endpoint = type === 'multi' ? 'search/multi' : `search/${type}`;
+        let res = await fetch(`https://api.themoviedb.org/3/${endpoint}?api_key=${tmdbApiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
         let data = await res.json();
         let container = document.getElementById('search-results');
         container.innerHTML = '';
 
         if (data.results && data.results.length > 0) {
-          data.results.slice(0, 6).forEach((m) => {
+          data.results.slice(0, 8).forEach((m) => {
+            let itemType = m.media_type || (type === 'multi' ? 'movie' : type);
+            if (itemType !== 'movie' && itemType !== 'tv') return;
+
             let title = m.title || m.name || 'Sans titre';
             let poster = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '';
-            
+            let genreNames = (m.genre_ids || []).map(id => genresMap[id]).filter(Boolean);
+
             let card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
+              <span class="badge-type">${itemType === 'tv' ? '📺 Série' : '🎬 Film'}</span>
               <img src="${poster || 'https://via.placeholder.com/150x220?text=Pas+d+image'}" alt="${title}">
-              <div class="card-info"><div class="card-title">${title}</div></div>
-              <button class="action-btn" style="margin:5px 10px 10px 10px;" onclick="addTMDBMovie('${title.replace(/'/g, "\\'")}', '${poster}')">+ Collection</button>
+              <div class="card-info">
+                <div class="card-title">${title}</div>
+                <div class="card-meta">${genreNames.join(', ') || 'Genre N/A'}</div>
+              </div>
+              <button class="action-btn" style="margin:5px 10px 10px 10px;" onclick="addTMDBMovie('${title.replace(/'/g, "\\'")}', '${poster}', '${itemType}', ${JSON.stringify(genreNames).replace(/"/g, '&quot;')})">+ Collection</button>
             `;
             container.appendChild(card);
           });
         } else {
-          container.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; color:#aaa;">Aucun résultat TMDB.</p>';
+          container.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; color:#aaa;">Aucun résultat.</p>';
         }
-      } catch(e) {
-        alert("Erreur de recherche TMDB : " + e.message);
-      }
+      } catch(e) { alert("Erreur TMDB : " + e.message); }
     }
 
-    // Ajout depuis la recherche TMDB
-    async function addTMDBMovie(title, poster) {
+    // 10. Ajouter depuis la recherche TMDB
+    async function addTMDBMovie(title, poster, type, genres) {
       let format = document.getElementById('manual-format').value;
       try {
         await db.collection("movies").add({
           title: title,
           poster: poster,
           format: format,
+          media_type: type,
+          genres: genres,
           createdAt: new Date()
         });
-        alert(`✅ "${title}" a été ajouté !`);
-      } catch(err) {
-        alert("Erreur : " + err.message);
-      }
+        alert(`✅ "${title}" ajouté à la collection !`);
+      } catch(err) { alert("Erreur : " + err.message); }
     }
 
-    // Sauvegarde de la clé API
+    // 11. Sauvegarder la clé API
     async function saveApiKey() {
       let key = document.getElementById('api-key-input').value.trim();
       if (key) {
         await db.collection("settings").doc("tmdb").set({ key: key });
-        alert('Clé API enregistrée avec succès !');
+        alert('Clé API enregistrée !');
       }
+    }
+
+    // 12. Navigation
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tabName).classList.add('active');
+      document.getElementById('nav-' + tabName).classList.add('active');
     }
   </script>
 </body>
