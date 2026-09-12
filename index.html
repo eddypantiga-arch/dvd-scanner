@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DVDthèque - Recherche Vocale & TMDB</title>
+  <title>DVDthèque - Choix des Jaquettes & TMDB</title>
   <style>
     :root {
       --bg-color: #121212;
@@ -88,7 +88,7 @@
     }
     nav button.active { color: var(--accent); }
 
-    /* Modal / Fiche Détail Film */
+    /* Modals */
     .modal {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.85); z-index: 1000;
@@ -115,7 +115,7 @@
     .btn-mic {
       background: #27ae60;
       color: white;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       font-weight: bold;
       padding: 18px;
       border: none;
@@ -138,39 +138,68 @@
       100% { opacity: 1; }
     }
 
-    .format-selector {
-      background: #222; padding: 10px;
+    .selector-box {
+      background: #222; padding: 12px;
       border-radius: 8px; margin-bottom: 15px; border: 1px solid #333;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .selector-box label { font-size: 0.75rem; color: #aaa; display: block; margin-bottom: 4px; }
+
+    /* Affiches alternatives */
+    .poster-gallery {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 10px;
+      padding: 5px;
+    }
+    .poster-gallery img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .poster-gallery img.selected {
+      border-color: var(--accent);
     }
   </style>
 </head>
 <body>
 
-  <header>🎬 DVDthèque Anti-Doublons</header>
+  <header>🎬 DVDthèque - Saisie & Visuels 4K/UHD</header>
 
   <div class="container">
-    <!-- CHOIX DU FORMAT -->
-    <div class="format-selector">
-      <label for="scan-format" style="font-size:0.85rem; color:#aaa;">Format du film à ajouter :</label>
-      <select id="scan-format">
-        <option value="DVD">📀 DVD</option>
-        <option value="Blu-ray" selected>🟦 Blu-ray</option>
-        <option value="4K UHD">💜 4K Ultra HD</option>
-      </select>
+    <!-- OPTION : FORMAT & TYPE DE RECHERCHE -->
+    <div class="selector-box">
+      <div>
+        <label>Type d'élément :</label>
+        <select id="search-type">
+          <option value="movie" selected>🎬 Film seul</option>
+          <option value="collection">📦 Coffret / Saga</option>
+        </select>
+      </div>
+      <div>
+        <label>Format physique :</label>
+        <select id="scan-format">
+          <option value="DVD">📀 DVD</option>
+          <option value="Blu-ray">🟦 Blu-ray</option>
+          <option value="4K UHD" selected>💜 4K Ultra HD</option>
+        </select>
+      </div>
     </div>
 
     <!-- TAB RECHERCHE VOCALE ET TEXTE -->
     <div id="tab-search" class="tab-content active">
       <button id="mic-btn" class="btn-mic" onclick="toggleVoiceInput()">
-        🎙️ DITEE VOCALE (Parler)
+        🎙️ DICTÉE VOCALE (Parler)
       </button>
-      
-      <p style="text-align:center; font-size:0.85rem; color:#aaa; margin-top:-5px;">
-        Ou tapez le nom du film ci-dessous :
-      </p>
 
       <div style="display:flex; gap:5px;">
-        <input type="text" id="search-input" placeholder="Titre du film..." onkeyup="if(event.key==='Enter') searchMovie()">
+        <input type="text" id="search-input" placeholder="Ex: Premier Contact, Harry Potter..." onkeyup="if(event.key==='Enter') searchMovie()">
         <button onclick="searchMovie()" style="background:var(--accent); color:white; border:none; border-radius:6px; padding:10px 15px; font-weight:bold;">🔍</button>
       </div>
 
@@ -188,9 +217,19 @@
     <!-- TAB API -->
     <div id="tab-api" class="tab-content">
       <h3>Configuration API TMDB</h3>
-      <p style="font-size: 0.85rem; color: #aaa;">Obligatoire pour récupérer automatiquement les vraies jaquettes et résumés.</p>
+      <p style="font-size: 0.85rem; color: #aaa;">Obligatoire pour charger les affiches et fiches techniques.</p>
       <input type="text" id="api-key-input" placeholder="Collez votre clé API TMDB">
       <button class="action-btn" onclick="saveApiKey()">Enregistrer la clé</button>
+    </div>
+  </div>
+
+  <!-- MODAL / SELECTION D'AFFICHE ALTERNATIVE -->
+  <div id="poster-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closePosterModal()">&times;</span>
+      <h3 style="margin-top:0;">Choisir une affiche pour ce film :</h3>
+      <p style="font-size:0.8rem; color:#aaa;">Cliquez sur l'image qui correspond le mieux à votre boîtier (Blu-ray / 4K / Collector) :</p>
+      <div id="poster-gallery" class="poster-gallery"></div>
     </div>
   </div>
 
@@ -217,6 +256,7 @@
 
   <script>
     let recognition = null;
+    let currentSearchingMovie = null;
 
     function getCollection() {
       return JSON.parse(localStorage.getItem('dvd_collection') || '[]');
@@ -241,10 +281,10 @@
       if (tabName === 'collection') renderCollection();
     }
 
-    // Gestion de la Dictée Vocale
+    // Dictée Vocale
     function toggleVoiceInput() {
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        alert("La dictée vocale n'est pas supportée sur ce navigateur. Utilisez Chrome ou Safari.");
+        alert("La dictée vocale n'est pas supportée par votre navigateur.");
         return;
       }
 
@@ -263,8 +303,6 @@
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognition = new SpeechRecognition();
       recognition.lang = 'fr-FR';
-      recognition.continuous = false;
-      recognition.interimResults = false;
 
       micBtn.classList.add('listening');
       micBtn.innerHTML = "🔴 ÉCOUTE EN COURS... PARLEZ !";
@@ -273,13 +311,13 @@
       recognition.onresult = function(event) {
         let transcript = event.results[0][0].transcript;
         document.getElementById('search-input').value = transcript;
-        statusEl.innerText = "Recherche pour : " + transcript;
+        statusEl.innerText = "Recherche : " + transcript;
         searchMovie();
         stopMic();
       };
 
-      recognition.onerror = function(event) {
-        statusEl.innerText = "Erreur de micro. Réessayez.";
+      recognition.onerror = function() {
+        statusEl.innerText = "Erreur de micro.";
         stopMic();
       };
 
@@ -292,21 +330,58 @@
 
     function stopMic() {
       const micBtn = document.getElementById('mic-btn');
-      micBtn.classList.remove('listening');
-      micBtn.innerHTML = "🎙️ DICTÉE VOCALE (Parler)";
+      if (micBtn) {
+        micBtn.classList.remove('listening');
+        micBtn.innerHTML = "🎙️ DICTÉE VOCALE (Parler)";
+      }
       recognition = null;
     }
 
-    function formatTmdbMovie(m) {
+    function formatTmdbMovie(m, isCollectionType) {
+      let titleName = isCollectionType ? (m.name || m.title) : m.title;
       return {
         id: m.id,
-        title: m.title,
+        title: titleName,
         poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
-        overview: m.overview || 'Aucun synopsis disponible.',
+        overview: m.overview || 'Aucun résumé disponible.',
         release_date: m.release_date || 'Inconnue',
         vote_average: m.vote_average ? m.vote_average.toFixed(1) : 'N/A',
-        format: getSelectedFormat()
+        format: getSelectedFormat() + (isCollectionType ? ' (Coffret)' : '')
       };
+    }
+
+    // Permet d'ouvrir la galerie pour choisir une autre jaquette (4K, Steelbook, etc.)
+    async function openPosterGallery(movieId, cardIndex) {
+      let apiKey = localStorage.getItem('tmdb_api_key');
+      let searchType = document.getElementById('search-type').value;
+      let endpoint = searchType === 'collection' ? 'collection' : 'movie';
+
+      let res = await fetch(`https://api.themoviedb.org/3/${endpoint}/${movieId}/images?api_key=${apiKey}&include_image_language=fr,en,null`);
+      let data = await res.json();
+
+      let gallery = document.getElementById('poster-gallery');
+      gallery.innerHTML = '';
+
+      if (data.posters && data.posters.length > 0) {
+        data.posters.slice(0, 15).forEach(imgData => {
+          let imgUrl = `https://image.tmdb.org/t/p/w500${imgData.file_path}`;
+          let img = document.createElement('img');
+          img.src = imgUrl;
+          img.onclick = function() {
+            document.getElementById(`img-result-${cardIndex}`).src = imgUrl;
+            window[`searchResultMovie_${cardIndex}`].poster = imgUrl;
+            closePosterModal();
+          };
+          gallery.appendChild(img);
+        });
+        document.getElementById('poster-modal').style.display = 'block';
+      } else {
+        alert("Aucune affiche alternative trouvée pour ce titre.");
+      }
+    }
+
+    function closePosterModal() {
+      document.getElementById('poster-modal').style.display = 'none';
     }
 
     function addMovieToCollection(movie) {
@@ -316,7 +391,7 @@
       );
       
       if (exists) {
-        alert(`⚠️ DOUBLON : "${movie.title}" en [${movie.format}] est déjà dans votre collection !`);
+        alert(`⚠️ DOUBLON : "${movie.title}" [${movie.format}] est déjà dans votre collection !`);
       } else {
         collection.push(movie);
         saveCollection(collection);
@@ -332,12 +407,12 @@
 
       collection.forEach((movie, index) => {
         let posterUrl = movie.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
-        let formatClass = movie.format === '4K UHD' ? 'format-4K' : (movie.format === 'Blu-ray' ? 'format-Bluray' : 'format-DVD');
+        let formatClass = movie.format.includes('4K') ? 'format-4K' : (movie.format.includes('Blu-ray') ? 'format-Bluray' : 'format-DVD');
         
         let card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
-          <span class="badge-format ${formatClass}">${movie.format || 'DVD'}</span>
+          <span class="badge-format ${formatClass}">${movie.format}</span>
           <img src="${posterUrl}" onclick="openModal(${index})" alt="${movie.title}">
           <div class="card-info" onclick="openModal(${index})">
             <div class="card-title">${movie.title}</div>
@@ -353,7 +428,7 @@
       if (!movie) return;
       document.getElementById('modal-poster').src = movie.poster || 'https://via.placeholder.com/300x450?text=Pas+d+image';
       document.getElementById('modal-title').innerText = movie.title;
-      document.getElementById('modal-format').innerText = movie.format || 'DVD';
+      document.getElementById('modal-format').innerText = movie.format;
       document.getElementById('modal-date').innerText = movie.release_date;
       document.getElementById('modal-rating').innerText = movie.vote_average;
       document.getElementById('modal-overview').innerText = movie.overview;
@@ -379,31 +454,36 @@
     async function searchMovie() {
       let query = document.getElementById('search-input').value.trim();
       let apiKey = localStorage.getItem('tmdb_api_key');
+      let searchType = document.getElementById('search-type').value;
 
-      if (!apiKey) return alert("Veuillez d'abord configurer votre clé API dans l'onglet ⚙️ Clé API.");
+      if (!apiKey) return alert("Veuillez configurer votre clé API dans l'onglet ⚙️ Clé API.");
       if (!query) return;
 
-      let res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
+      let endpoint = searchType === 'collection' ? 'collection' : 'movie';
+      let res = await fetch(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
       let data = await res.json();
       let container = document.getElementById('search-results');
       container.innerHTML = '';
 
       if (data.results && data.results.length > 0) {
-        data.results.slice(0, 6).forEach(m => {
-          let movie = formatTmdbMovie(m);
+        data.results.slice(0, 6).forEach((m, idx) => {
+          let movie = formatTmdbMovie(m, searchType === 'collection');
+          window[`searchResultMovie_${idx}`] = movie;
+
           let card = document.createElement('div');
           card.className = 'card';
           card.innerHTML = `
-            <img src="${movie.poster || 'https://via.placeholder.com/150x220'}" alt="${movie.title}">
+            <img id="img-result-${idx}" src="${movie.poster || 'https://via.placeholder.com/150x220'}" alt="${movie.title}">
             <div class="card-info">
               <div class="card-title">${movie.title}</div>
             </div>
-            <button class="action-btn" style="margin:10px;" onclick='addMovieToCollection(${JSON.stringify(movie).replace(/'/g, "&apos;")})'>+ Ajouter (${getSelectedFormat()})</button>
+            <button style="background:#444; color:white; border:none; padding:6px; margin:0 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;" onclick="openPosterGallery(${movie.id}, ${idx})">🔄 Changer la jaquette</button>
+            <button class="action-btn" style="margin:10px;" onclick='addMovieToCollection(window["searchResultMovie_${idx}"])'>+ Ajouter (${movie.format})</button>
           `;
           container.appendChild(card);
         });
       } else {
-        container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucun film trouvé.</p>';
+        container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucun résultat trouvé.</p>';
       }
     }
 
