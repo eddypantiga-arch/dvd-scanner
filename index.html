@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DVDthèque Anti-Doublons</title>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <title>DVDthèque - Jaquettes & Fiches TMDB</title>
+  <!-- Library OCR Tesseract.js pour lire le texte sur la photo de la jaquette -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     :root {
       --bg-color: #121212;
@@ -15,10 +16,10 @@
     }
     body {
       margin: 0; padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg-color);
       color: var(--text);
-      padding-bottom: 70px;
+      padding-bottom: 75px;
     }
     header {
       background-color: #000;
@@ -44,17 +45,17 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      cursor: pointer;
       border: 1px solid #333;
       position: relative;
     }
     .card img {
       width: 100%;
-      height: 220px;
+      height: 230px;
       object-fit: cover;
       background-color: #2a2a2a;
+      cursor: pointer;
     }
-    .card-info { padding: 10px; flex-grow: 1; }
+    .card-info { padding: 10px; flex-grow: 1; cursor: pointer; }
     .card-title { font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; }
     
     .badge-format {
@@ -63,6 +64,7 @@
       padding: 4px 8px; border-radius: 4px;
       font-size: 0.75rem; font-weight: bold; color: #fff;
       box-shadow: 0 2px 4px rgba(0,0,0,0.6);
+      pointer-events: none;
     }
     .format-DVD { background-color: #e67e22; }
     .format-Bluray { background-color: #2980b9; }
@@ -88,6 +90,7 @@
     }
     nav button.active { color: var(--accent); }
 
+    /* Modal / Fiche Détail Film */
     .modal {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.85); z-index: 1000;
@@ -95,12 +98,12 @@
     }
     .modal-content {
       background: var(--card-bg); border-radius: 12px;
-      padding: 20px; max-width: 500px; margin: 40px auto;
+      padding: 20px; max-width: 500px; margin: 20px auto;
       position: relative; border: 1px solid #444;
     }
     .close-btn {
       position: absolute; top: 10px; right: 15px;
-      font-size: 24px; color: #fff; cursor: pointer;
+      font-size: 28px; color: #fff; cursor: pointer;
     }
     .modal img { width: 100%; border-radius: 8px; margin-bottom: 15px; }
     
@@ -108,13 +111,21 @@
       width: 100%; padding: 12px; margin-top: 10px;
       border-radius: 6px; border: none; box-sizing: border-box;
     }
-    input, select { background: #2a2a2a; color: white; border: 1px solid #444; }
-    button.action-btn { background: var(--accent); color: white; font-weight: bold; }
+    input, select { background: #2a2a2a; color: white; border: 1px solid #444; font-size: 1rem; }
+    button.action-btn { background: var(--accent); color: white; font-weight: bold; font-size: 1rem; cursor: pointer; }
     
     .format-selector {
       background: #222; padding: 10px;
       border-radius: 8px; margin-bottom: 15px; border: 1px solid #333;
     }
+
+    /* Zone photo OCR */
+    .ocr-box {
+      border: 2px dashed #444; border-radius: 8px;
+      padding: 20px; text-align: center; background: #1a1a1a;
+      margin-top: 10px;
+    }
+    #ocr-status { margin-top: 10px; font-weight: bold; color: #ffca28; }
   </style>
 </head>
 <body>
@@ -123,7 +134,7 @@
 
   <div class="container">
     <div class="format-selector">
-      <label for="scan-format" style="font-size:0.85rem; color:#aaa;">Format par défaut :</label>
+      <label for="scan-format" style="font-size:0.85rem; color:#aaa;">Format à ajouter :</label>
       <select id="scan-format">
         <option value="DVD">📀 DVD</option>
         <option value="Blu-ray" selected>🟦 Blu-ray</option>
@@ -131,18 +142,27 @@
       </select>
     </div>
 
-    <!-- TAB SCAN -->
-    <div id="tab-scan" class="tab-content active">
-      <h3>Scanner un code-barres (EAN)</h3>
-      <div id="reader" style="width: 100%; min-height: 250px;"></div>
-      <p id="scan-result" style="margin-top: 15px; font-weight: bold; text-align: center; color: #aaa;"></p>
+    <!-- TAB RECHERCHE PAR PHOTO -->
+    <div id="tab-photo" class="tab-content active">
+      <h3>📷 Photo de la Jaquette</h3>
+      <p style="font-size:0.85rem; color:#aaa;">Prenez en photo le titre sur le boîtier de votre film.</p>
+      
+      <div class="ocr-box">
+        <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none" onchange="processPhoto(this)">
+        <button class="action-btn" onclick="document.getElementById('photo-input').click()">📷 Prendre une Photo / Choisir Image</button>
+        <p id="ocr-status"></p>
+      </div>
+      <div id="photo-results" class="grid" style="margin-top:20px;"></div>
     </div>
 
-    <!-- TAB RECHERCHE -->
+    <!-- TAB RECHERCHE TEXTE & VOCALE -->
     <div id="tab-search" class="tab-content">
-      <h3>Recherche Manuelle</h3>
-      <input type="text" id="search-input" placeholder="Titre du film...">
-      <button class="action-btn" onclick="searchMovie()">Rechercher</button>
+      <h3>🔍 Recherche par Titre</h3>
+      <div style="display:flex; gap:5px;">
+        <input type="text" id="search-input" placeholder="Nom du film..." onkeyup="if(event.key==='Enter') searchMovie()">
+        <button onclick="startVoiceInput()" style="background:#333; color:white; border:1px solid #555; border-radius:6px; padding:10px; width:60px;">🎙️</button>
+      </div>
+      <button class="action-btn" onclick="searchMovie()">Rechercher sur TMDB</button>
       <div id="search-results" class="grid" style="margin-top:20px;"></div>
     </div>
 
@@ -154,14 +174,14 @@
 
     <!-- TAB API -->
     <div id="tab-api" class="tab-content">
-      <h3>Configuration API</h3>
-      <p style="font-size: 0.85rem; color: #aaa;">Clé API TMDB requis pour les jaquettes et synoptiques.</p>
-      <input type="text" id="api-key-input" placeholder="Clé API TMDB">
+      <h3>Configuration API TMDB</h3>
+      <p style="font-size: 0.85rem; color: #aaa;">Obligatoire pour récupérer automatiquement les jaquettes et données de Movie Database.</p>
+      <input type="text" id="api-key-input" placeholder="Collez votre clé API TMDB">
       <button class="action-btn" onclick="saveApiKey()">Enregistrer la clé</button>
     </div>
   </div>
 
-  <!-- MODAL DETAILS -->
+  <!-- MODAL / FICHE DÉTAILLÉE DU FILM -->
   <div id="movie-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closeModal()">&times;</span>
@@ -169,7 +189,7 @@
       <h2 id="modal-title" style="margin-top:0;"></h2>
       <p><strong>Format :</strong> <span id="modal-format" style="font-weight:bold;"></span></p>
       <p><strong>Date de sortie :</strong> <span id="modal-date"></span></p>
-      <p><strong>Note :</strong> ⭐ <span id="modal-rating"></span>/10</p>
+      <p><strong>Note TMDB :</strong> ⭐ <span id="modal-rating"></span>/10</p>
       <p><strong>Synopsis :</strong></p>
       <p id="modal-overview" style="color: #ccc; font-size: 0.9rem; line-height: 1.4;"></p>
     </div>
@@ -177,15 +197,13 @@
 
   <!-- BARRE DE NAVIGATION -->
   <nav>
-    <button onclick="switchTab('scan')" id="nav-scan" class="active">📷 <span>Scan</span></button>
-    <button onclick="switchTab('search')" id="nav-search">🔍 <span>Recherche</span></button>
+    <button onclick="switchTab('photo')" id="nav-photo" class="active">📷 <span>Photo</span></button>
+    <button onclick="switchTab('search')" id="nav-search">🔍 <span>Titre</span></button>
     <button onclick="switchTab('collection')" id="nav-collection">📚 <span>Collection</span></button>
     <button onclick="switchTab('api')" id="nav-api">⚙️ <span>Clé API</span></button>
   </nav>
 
   <script>
-    let html5QrcodeScanner = null;
-
     function getCollection() {
       return JSON.parse(localStorage.getItem('dvd_collection') || '[]');
     }
@@ -206,93 +224,58 @@
       document.getElementById('tab-' + tabName).classList.add('active');
       document.getElementById('nav-' + tabName).classList.add('active');
 
-      if (tabName === 'scan') startScanner();
-      else stopScanner();
-
       if (tabName === 'collection') renderCollection();
     }
 
-    function startScanner() {
-      if (html5QrcodeScanner) return;
-      html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150} });
-      html5QrcodeScanner.render(onScanSuccess);
-    }
-
-    function stopScanner() {
-      if (html5QrcodeScanner) {
-        html5QrcodeScanner.clear();
-        html5QrcodeScanner = null;
-      }
-    }
-
-    async function onScanSuccess(decodedText) {
-      let statusEl = document.getElementById('scan-result');
-      statusEl.innerText = "Recherche du code " + decodedText + "...";
-
-      let detectedTitle = await lookupBarcode(decodedText);
-
-      if (detectedTitle) {
-        statusEl.innerText = "Trouvé : " + detectedTitle;
-        fetchAndAddMovie(cleanMovieTitle(detectedTitle));
-      } else {
-        statusEl.innerText = "Code inconnu dans les bases EAN.";
-        promptManualAdd(decodedText);
-      }
-    }
-
-    // Recherche multi-bases pour le code-barres EAN
-    async function lookupBarcode(ean) {
-      // 1. Open Products Facts
-      try {
-        let res = await fetch(`https://world.openproductsfacts.org/api/v0/product/${ean}.json`);
-        let data = await res.json();
-        if (data.product && data.product.product_name) return data.product.product_name;
-      } catch (e) {}
-
-      // 2. UPCitemdb
-      try {
-        let res = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${ean}`);
-        let data = await res.json();
-        if (data.items && data.items.length > 0) return data.items[0].title;
-      } catch (e) {}
-
-      return null;
-    }
-
-    function cleanMovieTitle(rawTitle) {
-      // Nettoyage des termes superflus renvoyés par les marchands
-      return rawTitle
-        .replace(/\[.*?\]|\(.*?\)/g, '')
-        .replace(/DVD|Blu-Ray|BluRay|4K|UHD|Ultra HD|Edition|Collector/gi, '')
-        .trim();
-    }
-
-    function promptManualAdd(barcode) {
-      let title = prompt("Code " + barcode + " non reconnu. Entrez le nom du film :");
-      if (title) fetchAndAddMovie(title);
-    }
-
-    async function fetchAndAddMovie(title) {
-      const apiKey = localStorage.getItem('tmdb_api_key');
-      const format = getSelectedFormat();
-
-      if (!apiKey) {
-        alert("Pensez à ajouter votre clé API dans l'onglet ⚙️ Clé API pour afficher les pochettes !");
-        addMovieToCollection({ title: title, poster: '', overview: 'Clé API manquante', release_date: 'N/A', vote_average: 'N/A', format: format });
-        return;
-      }
+    // Traitement de la photo avec l'OCR Tesseract
+    async function processPhoto(input) {
+      if (!input.files || !input.files[0]) return;
+      let statusEl = document.getElementById('ocr-status');
+      statusEl.innerText = "⏳ Lecture du titre sur la jaquette...";
 
       try {
-        let res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=fr-FR`);
-        let data = await res.json();
-        if (data.results && data.results.length > 0) {
-          addMovieToCollection(formatTmdbMovie(data.results[0]));
+        const result = await Tesseract.recognize(
+          input.files[0],
+          'fra+eng',
+          { logger: m => console.log(m) }
+        );
+
+        let cleanText = cleanOcrText(result.data.text);
+        if (cleanText) {
+          statusEl.innerText = "🔍 Recherche TMDB : " + cleanText;
+          executeSearch(cleanText, 'photo-results');
         } else {
-          addMovieToCollection({ title: title, poster: '', overview: 'Aucune donnée TMDB', release_date: 'N/A', vote_average: 'N/A', format: format });
+          statusEl.innerText = "❌ Titre illisible. Veuillez cadrer le titre sur la boîte.";
         }
       } catch(e) {
-        addMovieToCollection({ title: title, poster: '', overview: 'Erreur réseau', release_date: 'N/A', vote_average: 'N/A', format: format });
+        statusEl.innerText = "❌ Erreur de lecture d'image.";
       }
+    }
+
+    function cleanOcrText(text) {
+      return text
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/DVD|BLU-RAY|BLURAY|4K|UHD|ULTRA HD|EDITION|SPECIAL|COLLECTOR/gi, '')
+        .replace(/[^a-zA-Z0-9-éèàùçâêîôûäëïöüÉÈÀÙÇÂÊÎÔÛÄËÏÖÜ ]/g, '')
+        .trim()
+        .slice(0, 40);
+    }
+
+    // Dictée Vocale
+    function startVoiceInput() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        return alert("La dictée vocale n'est pas supportée par ce navigateur.");
+      }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'fr-FR';
+      recognition.start();
+
+      recognition.onresult = function(event) {
+        let transcript = event.results[0][0].transcript;
+        document.getElementById('search-input').value = transcript;
+        searchMovie();
+      };
     }
 
     function formatTmdbMovie(m) {
@@ -302,7 +285,7 @@
         poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
         overview: m.overview || 'Aucun synopsis disponible.',
         release_date: m.release_date || 'Inconnue',
-        vote_average: m.vote_average || 'N/A',
+        vote_average: m.vote_average ? m.vote_average.toFixed(1) : 'N/A',
         format: getSelectedFormat()
       };
     }
@@ -314,7 +297,7 @@
       );
       
       if (exists) {
-        alert(`⚠️ DOUBLON : "${movie.title}" en [${movie.format}] existe déjà dans votre collection !`);
+        alert(`⚠️ DOUBLON : "${movie.title}" en [${movie.format}] est déjà présent !`);
       } else {
         collection.push(movie);
         saveCollection(collection);
@@ -374,18 +357,23 @@
       alert('Clé API enregistrée avec succès !');
     }
 
-    async function searchMovie() {
+    function searchMovie() {
       let query = document.getElementById('search-input').value.trim();
+      executeSearch(query, 'search-results');
+    }
+
+    async function executeSearch(query, targetContainerId) {
       let apiKey = localStorage.getItem('tmdb_api_key');
-      if (!query || !apiKey) return alert("Entrez un titre et assurez-vous d'avoir configuré la clé API.");
+      if (!apiKey) return alert("Veuillez configurer votre clé API dans l'onglet ⚙️ Clé API.");
+      if (!query) return;
 
       let res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
       let data = await res.json();
-      let container = document.getElementById('search-results');
+      let container = document.getElementById(targetContainerId);
       container.innerHTML = '';
 
-      if (data.results) {
-        data.results.forEach(m => {
+      if (data.results && data.results.length > 0) {
+        data.results.slice(0, 6).forEach(m => {
           let movie = formatTmdbMovie(m);
           let card = document.createElement('div');
           card.className = 'card';
@@ -398,11 +386,13 @@
           `;
           container.appendChild(card);
         });
+      } else {
+        container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucun film trouvé.</p>';
       }
     }
 
     document.getElementById('api-key-input').value = localStorage.getItem('tmdb_api_key') || '';
-    startScanner();
+    renderCollection();
   </script>
 </body>
 </html>
