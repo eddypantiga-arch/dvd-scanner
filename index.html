@@ -174,6 +174,11 @@
       font-size: 0.95rem; font-weight: bold; color: #f59e0b;
       border-bottom: 1px solid #444; padding-bottom: 5px; margin-top: 15px; margin-bottom: 10px;
     }
+    
+    .section-title {
+      font-size: 1.05rem; font-weight: bold; color: #38bdf8;
+      border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px;
+    }
   </style>
 </head>
 <body>
@@ -211,6 +216,12 @@
 
       <p id="search-status" style="text-align:center; color:#ffca28; font-weight:bold; margin-top:10px;"></p>
       <div id="search-results" class="grid" style="margin-top:15px;"></div>
+
+      <!-- BLOC SORTIES SÉRIES J+7 -->
+      <div class="section-title">📺 Épisodes diffusés dans les 7 jours (J+7)</div>
+      <div id="airing-today-grid" class="grid">
+        <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des sorties de la semaine...</p>
+      </div>
     </div>
 
     <!-- TAB COLLECTION AVEC FILTRES ET TRI -->
@@ -343,6 +354,7 @@
       if (doc.exists && doc.data().key) {
         tmdbApiKey = doc.data().key;
         document.getElementById('api-key-input').value = tmdbApiKey;
+        loadAiringTodayTV();
       }
     });
 
@@ -456,6 +468,48 @@
         isTV: isTV,
         seasonsCount: details.number_of_seasons || 1
       };
+    }
+
+    async function loadAiringTodayTV() {
+      if (!tmdbApiKey) return;
+      let grid = document.getElementById('airing-today-grid');
+      
+      try {
+        let res = await fetch(`https://api.themoviedb.org/3/tv/on_the_air?api_key=${tmdbApiKey}&language=fr-FR&page=1`);
+        let data = await res.json();
+        
+        if (data.results && data.results.length > 0) {
+          grid.innerHTML = '';
+          for (let idx = 0; idx < Math.min(data.results.length, 6); idx++) {
+            let tv = data.results[idx];
+            let posterUrl = tv.poster_path ? `https://image.tmdb.org/t/p/w500${tv.poster_path}` : 'https://via.placeholder.com/150x220?text=Pas+d+image';
+            
+            window[`airingTV_${idx}`] = await formatTmdbItem(tv, 'tv');
+
+            let card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+              <img src="${posterUrl}" alt="${tv.name}">
+              <div class="card-info">
+                <div class="card-title">${tv.name}</div>
+                <div style="font-size:0.75rem; color:#aaa;">⭐ ${tv.vote_average ? tv.vote_average.toFixed(1) : 'N/A'}/10</div>
+              </div>
+              <button class="action-btn" style="margin:5px 10px;" onclick='addAiringToCollection(${idx}, false)'>+ Collection</button>
+              <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='addAiringToCollection(${idx}, true)'>💡 Envies</button>
+            `;
+            grid.appendChild(card);
+          }
+        } else {
+          grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucune sortie trouvée.</p>';
+        }
+      } catch (e) {
+        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur lors du chargement des séries J+7.</p>';
+      }
+    }
+
+    function addAiringToCollection(idx, isWishlist) {
+      let tv = window[`airingTV_${idx}`];
+      addMovieToCollection(tv, `Intégrale (Saisons 1 à ${tv.seasonsCount})`, isWishlist);
     }
 
     async function addMovieToCollection(movie, selectedSeasonLabel = '', isWishlist = false) {
@@ -823,6 +877,7 @@
       if (key) {
         await db.collection("settings").doc("tmdb").set({ key: key });
         alert('Clé enregistrée dans le Cloud !');
+        loadAiringTodayTV();
       }
     }
   </script>
