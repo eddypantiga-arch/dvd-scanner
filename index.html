@@ -33,7 +33,6 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     
-    /* Grid Collection */
     .grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -47,6 +46,7 @@
       flex-direction: column;
       cursor: pointer;
       border: 1px solid #333;
+      position: relative;
     }
     .card img {
       width: 100%;
@@ -56,6 +56,18 @@
     }
     .card-info { padding: 10px; flex-grow: 1; }
     .card-title { font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; }
+    
+    .badge-format {
+      position: absolute;
+      top: 8px; right: 8px;
+      padding: 4px 8px; border-radius: 4px;
+      font-size: 0.75rem; font-weight: bold; color: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.6);
+    }
+    .format-DVD { background-color: #e67e22; }
+    .format-Bluray { background-color: #2980b9; }
+    .format-4K { background-color: #8e44ad; }
+
     .btn-delete {
       background: var(--accent);
       color: white; border: none;
@@ -63,7 +75,6 @@
       border-radius: 5px; font-weight: bold;
     }
 
-    /* Navigation Bar */
     nav {
       position: fixed; bottom: 0; width: 100%;
       background: #000; display: flex;
@@ -77,7 +88,6 @@
     }
     nav button.active { color: var(--accent); }
 
-    /* Modal Détails Film */
     .modal {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.85); z-index: 1000;
@@ -94,12 +104,17 @@
     }
     .modal img { width: 100%; border-radius: 8px; margin-bottom: 15px; }
     
-    input, button.action-btn {
+    input, select, button.action-btn {
       width: 100%; padding: 12px; margin-top: 10px;
       border-radius: 6px; border: none; box-sizing: border-box;
     }
-    input { background: #2a2a2a; color: white; border: 1px solid #444; }
+    input, select { background: #2a2a2a; color: white; border: 1px solid #444; }
     button.action-btn { background: var(--accent); color: white; font-weight: bold; }
+    
+    .format-selector {
+      background: #222; padding: 10px;
+      border-radius: 8px; margin-bottom: 15px; border: 1px solid #333;
+    }
   </style>
 </head>
 <body>
@@ -107,11 +122,20 @@
   <header>🎬 DVDthèque Anti-Doublons</header>
 
   <div class="container">
+    <div class="format-selector">
+      <label for="scan-format" style="font-size:0.85rem; color:#aaa;">Format par défaut :</label>
+      <select id="scan-format">
+        <option value="DVD">📀 DVD</option>
+        <option value="Blu-ray" selected>🟦 Blu-ray</option>
+        <option value="4K UHD">💜 4K Ultra HD</option>
+      </select>
+    </div>
+
     <!-- TAB SCAN -->
     <div id="tab-scan" class="tab-content active">
       <h3>Scanner un code-barres (EAN)</h3>
       <div id="reader" style="width: 100%; min-height: 250px;"></div>
-      <p id="scan-result" style="margin-top: 15px; font-weight: bold; text-align: center;"></p>
+      <p id="scan-result" style="margin-top: 15px; font-weight: bold; text-align: center; color: #aaa;"></p>
     </div>
 
     <!-- TAB RECHERCHE -->
@@ -131,18 +155,19 @@
     <!-- TAB API -->
     <div id="tab-api" class="tab-content">
       <h3>Configuration API</h3>
-      <p style="font-size: 0.85rem; color: #aaa;">Entrez votre clé API TMDB pour la recherche automatique des pochettes et détails.</p>
+      <p style="font-size: 0.85rem; color: #aaa;">Clé API TMDB requis pour les jaquettes et synoptiques.</p>
       <input type="text" id="api-key-input" placeholder="Clé API TMDB">
       <button class="action-btn" onclick="saveApiKey()">Enregistrer la clé</button>
     </div>
   </div>
 
-  <!-- MODAL DETAILS FILM -->
+  <!-- MODAL DETAILS -->
   <div id="movie-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closeModal()">&times;</span>
       <img id="modal-poster" src="" alt="Affiche">
       <h2 id="modal-title" style="margin-top:0;"></h2>
+      <p><strong>Format :</strong> <span id="modal-format" style="font-weight:bold;"></span></p>
       <p><strong>Date de sortie :</strong> <span id="modal-date"></span></p>
       <p><strong>Note :</strong> ⭐ <span id="modal-rating"></span>/10</p>
       <p><strong>Synopsis :</strong></p>
@@ -168,6 +193,10 @@
     function saveCollection(collection) {
       localStorage.setItem('dvd_collection', JSON.stringify(collection));
       renderCollection();
+    }
+
+    function getSelectedFormat() {
+      return document.getElementById('scan-format').value;
     }
 
     function switchTab(tabName) {
@@ -197,56 +226,72 @@
     }
 
     async function onScanSuccess(decodedText) {
-      document.getElementById('scan-result').innerText = "Code scanné : " + decodedText;
-      const apiKey = localStorage.getItem('tmdb_api_key');
-      
-      // Recherche Open Food Facts / Open Products Facts d'abord pour le code-barres
-      try {
-        let res = await fetch(`https://world.openproductsfacts.org/api/v0/product/${decodedText}.json`);
-        let data = await res.json();
-        let title = data.product ? data.product.product_name : null;
+      let statusEl = document.getElementById('scan-result');
+      statusEl.innerText = "Recherche du code " + decodedText + "...";
 
-        if (title && apiKey) {
-          fetchAndAddMovie(title);
-        } else if (title) {
-          addMovieToCollection({ title: title, poster: '', overview: 'Aucun synopsis', release_date: 'Inconnue', vote_average: 'N/A' });
-        } else if (apiKey) {
-          let tmdbRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(decodedText)}&language=fr-FR`);
-          let tmdbData = await tmdbRes.json();
-          if (tmdbData.results && tmdbData.results.length > 0) {
-            addMovieToCollection(formatTmdbMovie(tmdbData.results[0]));
-          } else {
-            promptManualAdd(decodedText);
-          }
-        } else {
-          promptManualAdd(decodedText);
-        }
-      } catch (e) {
+      let detectedTitle = await lookupBarcode(decodedText);
+
+      if (detectedTitle) {
+        statusEl.innerText = "Trouvé : " + detectedTitle;
+        fetchAndAddMovie(cleanMovieTitle(detectedTitle));
+      } else {
+        statusEl.innerText = "Code inconnu dans les bases EAN.";
         promptManualAdd(decodedText);
       }
     }
 
+    // Recherche multi-bases pour le code-barres EAN
+    async function lookupBarcode(ean) {
+      // 1. Open Products Facts
+      try {
+        let res = await fetch(`https://world.openproductsfacts.org/api/v0/product/${ean}.json`);
+        let data = await res.json();
+        if (data.product && data.product.product_name) return data.product.product_name;
+      } catch (e) {}
+
+      // 2. UPCitemdb
+      try {
+        let res = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${ean}`);
+        let data = await res.json();
+        if (data.items && data.items.length > 0) return data.items[0].title;
+      } catch (e) {}
+
+      return null;
+    }
+
+    function cleanMovieTitle(rawTitle) {
+      // Nettoyage des termes superflus renvoyés par les marchands
+      return rawTitle
+        .replace(/\[.*?\]|\(.*?\)/g, '')
+        .replace(/DVD|Blu-Ray|BluRay|4K|UHD|Ultra HD|Edition|Collector/gi, '')
+        .trim();
+    }
+
     function promptManualAdd(barcode) {
-      let title = prompt("Film non trouvé automatiquement pour le code " + barcode + ". Entrez le titre :");
+      let title = prompt("Code " + barcode + " non reconnu. Entrez le nom du film :");
       if (title) fetchAndAddMovie(title);
     }
 
     async function fetchAndAddMovie(title) {
       const apiKey = localStorage.getItem('tmdb_api_key');
+      const format = getSelectedFormat();
+
       if (!apiKey) {
-        addMovieToCollection({ title: title, poster: '', overview: 'Clé API manquante', release_date: 'N/A', vote_average: 'N/A' });
+        alert("Pensez à ajouter votre clé API dans l'onglet ⚙️ Clé API pour afficher les pochettes !");
+        addMovieToCollection({ title: title, poster: '', overview: 'Clé API manquante', release_date: 'N/A', vote_average: 'N/A', format: format });
         return;
       }
+
       try {
         let res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=fr-FR`);
         let data = await res.json();
         if (data.results && data.results.length > 0) {
           addMovieToCollection(formatTmdbMovie(data.results[0]));
         } else {
-          addMovieToCollection({ title: title, poster: '', overview: 'Aucune donnée TMDB', release_date: 'N/A', vote_average: 'N/A' });
+          addMovieToCollection({ title: title, poster: '', overview: 'Aucune donnée TMDB', release_date: 'N/A', vote_average: 'N/A', format: format });
         }
       } catch(e) {
-        addMovieToCollection({ title: title, poster: '', overview: 'Erreur réseau', release_date: 'N/A', vote_average: 'N/A' });
+        addMovieToCollection({ title: title, poster: '', overview: 'Erreur réseau', release_date: 'N/A', vote_average: 'N/A', format: format });
       }
     }
 
@@ -257,19 +302,23 @@
         poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
         overview: m.overview || 'Aucun synopsis disponible.',
         release_date: m.release_date || 'Inconnue',
-        vote_average: m.vote_average || 'N/A'
+        vote_average: m.vote_average || 'N/A',
+        format: getSelectedFormat()
       };
     }
 
     function addMovieToCollection(movie) {
       let collection = getCollection();
-      let exists = collection.some(item => item.title.toLowerCase() === movie.title.toLowerCase());
+      let exists = collection.some(item => 
+        item.title.toLowerCase() === movie.title.toLowerCase() && item.format === movie.format
+      );
+      
       if (exists) {
-        alert(`⚠️ ATTENTION : "${movie.title}" est DÉJÀ dans votre collection !`);
+        alert(`⚠️ DOUBLON : "${movie.title}" en [${movie.format}] existe déjà dans votre collection !`);
       } else {
         collection.push(movie);
         saveCollection(collection);
-        alert(`✅ "${movie.title}" ajouté à la collection !`);
+        alert(`✅ Ajouté : "${movie.title}" (${movie.format})`);
       }
     }
 
@@ -281,9 +330,12 @@
 
       collection.forEach((movie, index) => {
         let posterUrl = movie.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
+        let formatClass = movie.format === '4K UHD' ? 'format-4K' : (movie.format === 'Blu-ray' ? 'format-Bluray' : 'format-DVD');
+        
         let card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
+          <span class="badge-format ${formatClass}">${movie.format || 'DVD'}</span>
           <img src="${posterUrl}" onclick="openModal(${index})" alt="${movie.title}">
           <div class="card-info" onclick="openModal(${index})">
             <div class="card-title">${movie.title}</div>
@@ -299,6 +351,7 @@
       if (!movie) return;
       document.getElementById('modal-poster').src = movie.poster || 'https://via.placeholder.com/300x450?text=Pas+d+image';
       document.getElementById('modal-title').innerText = movie.title;
+      document.getElementById('modal-format').innerText = movie.format || 'DVD';
       document.getElementById('modal-date').innerText = movie.release_date;
       document.getElementById('modal-rating').innerText = movie.vote_average;
       document.getElementById('modal-overview').innerText = movie.overview;
@@ -341,14 +394,13 @@
             <div class="card-info">
               <div class="card-title">${movie.title}</div>
             </div>
-            <button class="action-btn" style="margin:10px;" onclick='addMovieToCollection(${JSON.stringify(movie).replace(/'/g, "&apos;")})'>+ Ajouter</button>
+            <button class="action-btn" style="margin:10px;" onclick='addMovieToCollection(${JSON.stringify(movie).replace(/'/g, "&apos;")})'>+ Ajouter (${getSelectedFormat()})</button>
           `;
           container.appendChild(card);
         });
       }
     }
 
-    // Initialisation
     document.getElementById('api-key-input').value = localStorage.getItem('tmdb_api_key') || '';
     startScanner();
   </script>
