@@ -132,19 +132,13 @@
     button.action-btn { background: var(--accent); color: white; font-weight: bold; font-size: 1rem; cursor: pointer; }
 
     .btn-fav {
-      background: #333;
-      color: #aaa;
-      border: 1px solid #555;
-      border-radius: 4px;
-      padding: 6px;
-      font-size: 0.75rem;
-      font-weight: bold;
-      cursor: pointer;
-      margin: 5px 10px 0 10px;
+      background: #333; color: #aaa;
+      border: 1px solid #555; border-radius: 4px;
+      padding: 6px; font-size: 0.75rem; font-weight: bold;
+      cursor: pointer; margin: 5px 10px 0 10px;
     }
     .btn-fav.active {
-      background: var(--imdb-yellow);
-      color: #000;
+      background: var(--imdb-yellow); color: #000;
       border: 1px solid var(--imdb-yellow);
     }
 
@@ -202,25 +196,27 @@
 
     .date-group-header {
       grid-column: 1 / -1;
-      background: #252525;
-      color: var(--imdb-yellow);
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.95rem;
-      margin-top: 10px;
-      border-left: 4px solid var(--imdb-yellow);
+      background: #252525; color: var(--imdb-yellow);
+      padding: 8px 12px; border-radius: 6px; font-weight: bold;
+      font-size: 0.95rem; margin-top: 10px; border-left: 4px solid var(--imdb-yellow);
     }
 
     .ep-tag {
       background-color: rgba(56, 189, 248, 0.15);
       border-left: 3px solid #38bdf8;
-      padding: 6px;
-      margin-top: 8px;
-      border-radius: 0 4px 4px 0;
+      padding: 6px; margin-top: 8px; border-radius: 0 4px 4px 0;
     }
     .ep-num { font-weight: bold; color: #38bdf8; font-size: 0.75rem; display: block; }
     .ep-title-text { color: #ddd; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+
+    .provider-badge {
+      display: flex; align-items: center; gap: 6px;
+      background: #2a2a2a; padding: 4px 8px; border-radius: 4px;
+      margin-top: 6px; font-size: 0.75rem; color: #fff;
+    }
+    .provider-badge img {
+      width: 18px; height: 18px; border-radius: 3px; object-fit: cover;
+    }
   </style>
 </head>
 <body>
@@ -259,10 +255,10 @@
       <p id="search-status" style="text-align:center; color:#ffca28; font-weight:bold; margin-top:10px;"></p>
       <div id="search-results" class="grid" style="margin-top:15px;"></div>
 
-      <!-- BLOC SORTIES SÉRIES PAR DATE -->
-      <div class="section-title">📺 Épisodes diffusés actuellement (Classement par date)</div>
+      <!-- BLOC SÉRIES (FAVORIS ET TENDANCES SEULEMENT) -->
+      <div class="section-title">📺 Diffusion Séries (Favoris & Tendances)</div>
       <div id="airing-today-grid" class="grid">
-        <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des séries...</p>
+        <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des séries favoris & tendances...</p>
       </div>
     </div>
 
@@ -303,21 +299,13 @@
     <!-- TAB CONFIGURATION -->
     <div id="tab-api" class="tab-content">
       <h3>Configuration Clé API TMDB</h3>
-      <p style="font-size: 0.85rem; color: #aaa;">Obligatoire pour récupérer les jaquettes et détails des films/séries.</p>
+      <p style="font-size: 0.85rem; color: #aaa;">Obligatoire pour récupérer les jaquettes, plateformes et détails.</p>
       <input type="text" id="api-key-input" placeholder="Collez votre clé API TMDB">
       <button class="action-btn" onclick="saveApiKey()">Enregistrer la clé dans le Cloud</button>
     </div>
   </div>
 
-  <!-- MODALS -->
-  <div id="poster-modal" class="modal">
-    <div class="modal-content">
-      <span class="close-btn" onclick="closePosterModal()">&times;</span>
-      <h3 style="margin-top:0;">Choisir une affiche :</h3>
-      <div id="poster-gallery" class="poster-gallery"></div>
-    </div>
-  </div>
-
+  <!-- MODAL DETAIL -->
   <div id="movie-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closeModal()">&times;</span>
@@ -325,6 +313,7 @@
       <h2 id="modal-title" style="margin-top:0;"></h2>
       
       <div class="meta-item"><strong>Format :</strong> <span id="modal-format"></span></div>
+      <div class="meta-item"><strong>Plateforme :</strong> <span id="modal-provider"></span></div>
       <div class="meta-item"><strong>Genre :</strong> <span id="modal-genres"></span></div>
       <div class="meta-item"><strong>Durée / Épisodes :</strong> <span id="modal-runtime"></span></div>
       <div class="meta-item"><strong>Réalisateur / Créateur :</strong> <span id="modal-director"></span></div>
@@ -338,10 +327,11 @@
       <a id="modal-imdb-link" href="#" target="_blank" class="btn-imdb" style="display:none;">🎬 Voir sur IMDb</a>
       <a id="modal-tmdb-link" href="#" target="_blank" class="btn-external">🔗 Voir sur TMDB Web</a>
       
-      <button id="modal-delete-btn" class="btn-delete" style="width:100%; margin: 15px 0 0 0;">🗑️ Supprimer ce titre</button>
+      <button id="modal-delete-btn" class="btn-delete" style="width:100%; margin: 15px 0 0 0; display:none;">🗑️ Supprimer ce titre</button>
     </div>
   </div>
 
+  <!-- MODAL ARTISTE -->
   <div id="artist-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closeArtistModal()">&times;</span>
@@ -377,7 +367,6 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let recognition = null;
     let localCollection = [];
     let favoriteTvIds = [];
     let tmdbApiKey = "";
@@ -393,16 +382,8 @@
     });
 
     db.collection("settings").doc("favorites").onSnapshot((doc) => {
-      if (doc.exists && doc.data().tvIds) {
-        favoriteTvIds = doc.data().tvIds;
-      } else {
-        favoriteTvIds = [];
-      }
+      favoriteTvIds = (doc.exists && doc.data().tvIds) ? doc.data().tvIds : [];
       loadAiringTodayTV();
-      // Si une recherche de série est affichée, on met à jour le statut du bouton favori
-      if (document.getElementById('search-type').value === 'tv') {
-        updateSearchFavoriteButtons();
-      }
     });
 
     db.collection("settings").doc("tmdb").onSnapshot((doc) => {
@@ -424,72 +405,15 @@
       if (tabName === 'wishlist') renderWishlist();
     }
 
-    function toggleVoiceInput() {
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        alert("La dictée vocale n'est pas gérée par votre navigateur.");
-        return;
-      }
-
-      const micBtn = document.getElementById('mic-btn');
-      const statusEl = document.getElementById('search-status');
-
-      if (recognition) {
-        recognition.stop();
-        recognition = null;
-        micBtn.classList.remove('listening');
-        micBtn.innerHTML = "🎙️ DICTÉE VOCALE (Parler)";
-        statusEl.innerText = "";
-        return;
-      }
-
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SpeechRecognition();
-      recognition.lang = 'fr-FR';
-
-      micBtn.classList.add('listening');
-      micBtn.innerHTML = "🔴 ÉCOUTE EN COURS...";
-      statusEl.innerText = "Dictée active...";
-
-      recognition.onresult = function(event) {
-        let transcript = event.results[0][0].transcript;
-        document.getElementById('search-input').value = transcript;
-        statusEl.innerText = "Recherche : " + transcript;
-        searchMovie();
-        stopMic();
-      };
-
-      recognition.onerror = recognition.onend = function() { stopMic(); };
-      recognition.start();
-    }
-
-    function stopMic() {
-      const micBtn = document.getElementById('mic-btn');
-      if (micBtn) {
-        micBtn.classList.remove('listening');
-        micBtn.innerHTML = "🎙️ DICTÉE VOCALE (Parler)";
-      }
-      recognition = null;
-    }
-
-    function formatRuntime(minutes) {
-      if (!minutes) return 'Non communiquée';
-      let h = Math.floor(minutes / 60);
-      let m = minutes % 60;
-      return `${h}h ${m}m`;
-    }
-
     function formatDateFR(dateStr) {
-      if (!dateStr) return 'Date inconnue';
+      if (!dateStr) return 'Inconnue';
       let parts = dateStr.split('-');
-      if (parts.length === 3) {
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
-      }
-      return dateStr;
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
     }
 
     async function fetchMovieDetails(id, type) {
       try {
-        let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&language=fr-FR&append_to_response=credits,external_ids`);
+        let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&language=fr-FR&append_to_response=credits,external_ids,watch/providers`);
         if (!res.ok) return {};
         return await res.json();
       } catch(e) { return {}; }
@@ -497,37 +421,41 @@
 
     async function formatTmdbItem(m, searchType) {
       let isTV = searchType === 'tv';
-      let isCollectionType = searchType === 'collection';
-      let typeEndpoint = isTV ? 'tv' : (isCollectionType ? 'collection' : 'movie');
-
+      let typeEndpoint = isTV ? 'tv' : 'movie';
       let details = await fetchMovieDetails(m.id, typeEndpoint);
 
-      let titleName = isTV ? (details.name || m.name || m.original_name) : (isCollectionType ? (details.name || m.name || m.title) : (details.title || m.title));
-
-      let genres = details.genres ? details.genres.map(g => g.name).join(', ') : 'N/A';
+      let titleName = isTV ? (details.name || m.name) : (details.title || m.title);
+      let genres = details.genres ? details.genres.map(g => g.name).join(', ') : 'Général';
+      
       let director = { name: 'Inconnu', id: null };
       let cast = [];
-
       if (details.credits) {
         let dirObj = details.credits.crew ? details.credits.crew.find(c => c.job === 'Director' || c.job === 'Executive Producer') : null;
         if (dirObj) director = { name: dirObj.name, id: dirObj.id };
+        if (details.credits.cast) cast = details.credits.cast.slice(0, 5).map(c => ({ name: c.name, id: c.id }));
+      }
 
-        if (details.credits.cast && details.credits.cast.length > 0) {
-          cast = details.credits.cast.slice(0, 5).map(c => ({ name: c.name, id: c.id }));
+      // Plateforme de diffusion
+      let providerInfo = null;
+      if (details['watch/providers'] && details['watch/providers'].results && details['watch/providers'].results.FR) {
+        let frProviders = details['watch/providers'].results.FR;
+        let flatrate = frProviders.flatrate || frProviders.ads || frProviders.buy;
+        if (flatrate && flatrate.length > 0) {
+          providerInfo = {
+            name: flatrate[0].provider_name,
+            logo: `https://image.tmdb.org/t/p/w92${flatrate[0].logo_path}`
+          };
         }
       }
 
-      let imdbId = details.external_ids ? details.external_ids.imdb_id : (details.imdb_id || null);
-      let runtimeStr = isTV ? `${details.number_of_seasons || 1} Saison(s) - ${details.number_of_episodes || 0} Ép.` : formatRuntime(details.runtime);
-
+      let imdbId = details.external_ids ? details.external_ids.imdb_id : null;
       let epInfo = null;
+
       if (isTV) {
         let ep = details.next_episode_to_air || details.last_episode_to_air;
         if (ep) {
-          let sNum = String(ep.season_number).padStart(2, '0');
-          let eNum = String(ep.episode_number).padStart(2, '0');
           epInfo = {
-            code: `S${sNum}E${eNum}`,
+            code: `S${String(ep.season_number).padStart(2, '0')}E${String(ep.episode_number).padStart(2, '0')}`,
             name: ep.name || 'Épisode sans titre',
             airDate: ep.air_date || '',
             isNext: !!details.next_episode_to_air
@@ -540,12 +468,13 @@
         title: titleName || 'Titre inconnu',
         poster: (details.poster_path || m.poster_path) ? `https://image.tmdb.org/t/p/w500${details.poster_path || m.poster_path}` : '',
         overview: details.overview || m.overview || 'Aucun résumé disponible.',
-        release_date: details.first_air_date || details.release_date || m.release_date || 'Inconnue',
+        release_date: details.first_air_date || details.release_date || 'Inconnue',
         vote_average: (details.vote_average || m.vote_average) ? (details.vote_average || m.vote_average).toFixed(1) : 'N/A',
-        runtime: runtimeStr,
-        genres: genres || 'Général',
+        runtime: isTV ? `${details.number_of_seasons || 1} Saison(s)` : `${details.runtime || 0} min`,
+        genres: genres,
         director: director,
         cast: cast,
+        provider: providerInfo,
         tmdb_url: `https://www.themoviedb.org/${typeEndpoint}/${m.id}`,
         imdb_url: imdbId ? `https://www.imdb.com/title/${imdbId}` : null,
         isTV: isTV,
@@ -556,234 +485,219 @@
 
     async function toggleFavoriteTV(tvId) {
       let index = favoriteTvIds.indexOf(tvId);
-      if (index > -1) {
-        favoriteTvIds.splice(index, 1);
-      } else {
-        favoriteTvIds.push(tvId);
-      }
+      if (index > -1) favoriteTvIds.splice(index, 1);
+      else favoriteTvIds.push(tvId);
       await db.collection("settings").doc("favorites").set({ tvIds: favoriteTvIds });
     }
 
-    function updateSearchFavoriteButtons() {
-      document.querySelectorAll('.btn-fav-search').forEach(btn => {
-        let id = parseInt(btn.getAttribute('data-tvid'));
-        if (favoriteTvIds.includes(id)) {
-          btn.classList.add('active');
-          btn.innerText = '⭐ Favori !';
-        } else {
-          btn.classList.remove('active');
-          btn.innerText = '☆ Mettre en fav';
-        }
-      });
-    }
-
-    /* AFFICHAGE DES SÉRIES GROUPÉES PAR DATE DE DIFFUSION EN CHRONOLOGIQUE */
+    /* CHARGEMENT UNICITÉ : FAVORIS ET TENDANCES */
     async function loadAiringTodayTV() {
       if (!tmdbApiKey) return;
       let grid = document.getElementById('airing-today-grid');
-      
+      grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des séries...</p>';
+
       try {
-        let res = await fetch(`https://api.themoviedb.org/3/tv/on_the_air?api_key=${tmdbApiKey}&language=fr-FR&page=1`);
-        if (!res.ok) throw new Error("Erreur de réponse TMDB");
-        let data = await res.json();
+        let resTrending = await fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${tmdbApiKey}&language=fr-FR`);
+        let dataTrending = await resTrending.json();
         
-        if (data.results && data.results.length > 0) {
-          grid.innerHTML = '';
-          let maxCount = Math.min(data.results.length, 16);
+        let rawList = dataTrending.results || [];
+        let itemsMap = new Map();
 
-          let tvList = [];
-          for (let idx = 0; idx < maxCount; idx++) {
-            let tv = data.results[idx];
-            let movieItem = await formatTmdbItem(tv, 'tv');
-            tvList.push(movieItem);
-          }
-
-          // Regroupement par date de diffusion
-          let groupedByDate = {};
-          tvList.forEach((movieItem, globalIdx) => {
-            window[`airingTV_${globalIdx}`] = movieItem;
-            movieItem._globalIdx = globalIdx;
-
-            let dateKey = movieItem.episodeInfo && movieItem.episodeInfo.airDate ? movieItem.episodeInfo.airDate : 'Date inconnue';
-            if (!groupedByDate[dateKey]) {
-              groupedByDate[dateKey] = [];
-            }
-            groupedByDate[dateKey].push(movieItem);
-          });
-
-          // Tri des dates de manière chronologique
-          let sortedDates = Object.keys(groupedByDate).sort((a, b) => {
-            if (a === 'Date inconnue') return 1;
-            if (b === 'Date inconnue') return -1;
-            return a.localeCompare(b);
-          });
-
-          sortedDates.forEach(dateStr => {
-            let items = groupedByDate[dateStr];
-            let dateHeader = document.createElement('div');
-            dateHeader.className = 'date-group-header';
-            dateHeader.innerText = `📅 Diffusé le : ${formatDateFR(dateStr)}`;
-            grid.appendChild(dateHeader);
-
-            items.forEach(movieItem => {
-              let posterUrl = movieItem.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
-              let isFav = favoriteTvIds.includes(movieItem.id);
-
-              let epHTML = '';
-              if (movieItem.episodeInfo) {
-                let tagLabel = movieItem.episodeInfo.isNext ? 'Prochain' : 'Dernier';
-                epHTML = `
-                  <div class="ep-tag">
-                    <span class="ep-num">📌 ${tagLabel} : ${movieItem.episodeInfo.code}</span>
-                    <div class="ep-title-text" title="${movieItem.episodeInfo.name}">${movieItem.episodeInfo.name}</div>
-                  </div>
-                `;
-              }
-
-              let card = document.createElement('div');
-              card.className = `card ${isFav ? 'is-favorite' : ''}`;
-              card.innerHTML = `
-                <img src="${posterUrl}" alt="${movieItem.title}">
-                <div class="card-info">
-                  <div class="card-title">${movieItem.title}</div>
-                  <div style="font-size:0.75rem; color:#aaa;">⭐ ${movieItem.vote_average}/10</div>
-                  ${epHTML}
-                </div>
-                <button class="btn-fav ${isFav ? 'active' : ''}" onclick="toggleFavoriteTV(${movieItem.id})">
-                  ${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}
-                </button>
-                <button class="action-btn" style="margin:5px 10px;" onclick='addAiringToCollection(${movieItem._globalIdx}, false)'>+ Collection</button>
-                <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='addAiringToCollection(${movieItem._globalIdx}, true)'>💡 Envies</button>
-              `;
-              grid.appendChild(card);
-            });
-          });
-
-        } else {
-          grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucune série trouvée.</p>';
+        // 1. Charger les favoris
+        for (let favId of favoriteTvIds) {
+          let item = await formatTmdbItem({ id: favId }, 'tv');
+          if (item.id) itemsMap.set(item.id, item);
         }
+
+        // 2. Charger les tendances (limite pour garder de la clarté)
+        for (let tv of rawList.slice(0, 8)) {
+          if (!itemsMap.has(tv.id)) {
+            let item = await formatTmdbItem(tv, 'tv');
+            if (item.id) itemsMap.set(item.id, item);
+          }
+        }
+
+        let tvList = Array.from(itemsMap.values());
+        grid.innerHTML = '';
+
+        if (tvList.length === 0) {
+          grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucune série trouvée.</p>';
+          return;
+        }
+
+        let groupedByDate = {};
+        tvList.forEach((movieItem, globalIdx) => {
+          window[`airingTV_${globalIdx}`] = movieItem;
+          movieItem._globalIdx = globalIdx;
+
+          let dateKey = movieItem.episodeInfo && movieItem.episodeInfo.airDate ? movieItem.episodeInfo.airDate : 'Date inconnue';
+          if (!groupedByDate[dateKey]) groupedByDate[dateKey] = [];
+          groupedByDate[dateKey].push(movieItem);
+        });
+
+        let sortedDates = Object.keys(groupedByDate).sort((a, b) => {
+          if (a === 'Date inconnue') return 1;
+          if (b === 'Date inconnue') return -1;
+          return a.localeCompare(b);
+        });
+
+        sortedDates.forEach(dateStr => {
+          let items = groupedByDate[dateStr];
+          let dateHeader = document.createElement('div');
+          dateHeader.className = 'date-group-header';
+          dateHeader.innerText = `📅 Date : ${formatDateFR(dateStr)}`;
+          grid.appendChild(dateHeader);
+
+          items.forEach(movieItem => {
+            let isFav = favoriteTvIds.includes(movieItem.id);
+            let providerHTML = movieItem.provider ? `
+              <div class="provider-badge">
+                <img src="${movieItem.provider.logo}" alt="${movieItem.provider.name}">
+                <span>${movieItem.provider.name}</span>
+              </div>` : '';
+
+            let epHTML = movieItem.episodeInfo ? `
+              <div class="ep-tag">
+                <span class="ep-num">📌 ${movieItem.episodeInfo.code}</span>
+                <div class="ep-title-text">${movieItem.episodeInfo.name}</div>
+              </div>` : '';
+
+            let card = document.createElement('div');
+            card.className = `card ${isFav ? 'is-favorite' : ''}`;
+            card.innerHTML = `
+              <img src="${movieItem.poster || 'https://via.placeholder.com/150'}" onclick="openModalObject(window.airingTV_${movieItem._globalIdx})" alt="${movieItem.title}">
+              <div class="card-info" onclick="openModalObject(window.airingTV_${movieItem._globalIdx})">
+                <div class="card-title">${movieItem.title}</div>
+                <div style="font-size:0.75rem; color:#aaa;">⭐ ${movieItem.vote_average}/10</div>
+                ${providerHTML}
+                ${epHTML}
+              </div>
+              <button class="btn-fav ${isFav ? 'active' : ''}" onclick="toggleFavoriteTV(${movieItem.id})">
+                ${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}
+              </button>
+              <button class="action-btn" style="margin:5px 10px;" onclick='addAiringToCollection(${movieItem._globalIdx}, false)'>+ Collection</button>
+            `;
+            grid.appendChild(card);
+          });
+        });
+
       } catch (e) {
         grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur de chargement.</p>';
       }
     }
 
+    function openModalObject(movie) {
+      document.getElementById('modal-poster').src = movie.poster || 'https://via.placeholder.com/300x450';
+      document.getElementById('modal-title').innerText = movie.title;
+      document.getElementById('modal-format').innerText = movie.format || (movie.isTV ? 'Série TV' : 'Film');
+      
+      let provEl = document.getElementById('modal-provider');
+      provEl.innerHTML = movie.provider ? `<img src="${movie.provider.logo}" style="width:20px; vertical-align:middle; margin-right:5px; border-radius:3px;"> ${movie.provider.name}` : 'Non spécifiée / TV';
+
+      document.getElementById('modal-genres').innerText = movie.genres || 'Général';
+      document.getElementById('modal-runtime').innerText = movie.runtime || 'N/A';
+      document.getElementById('modal-date').innerText = formatDateFR(movie.release_date);
+      document.getElementById('modal-rating').innerText = movie.vote_average;
+      document.getElementById('modal-overview').innerText = movie.overview;
+
+      let dirEl = document.getElementById('modal-director');
+      dirEl.innerHTML = movie.director ? movie.director.name : 'Inconnu';
+
+      let castEl = document.getElementById('modal-cast');
+      castEl.innerText = movie.cast ? movie.cast.map(c => c.name).join(', ') : 'Inconnu';
+
+      document.getElementById('modal-tmdb-link').href = movie.tmdb_url || '#';
+      document.getElementById('modal-delete-btn').style.display = 'none';
+
+      document.getElementById('movie-modal').style.display = 'block';
+    }
+
+    function closeModal() { document.getElementById('movie-modal').style.display = 'none'; }
+    function closeArtistModal() { document.getElementById('artist-modal').style.display = 'none'; }
+
+    async function searchMovie() {
+      let query = document.getElementById('search-input').value.trim();
+      let searchType = document.getElementById('search-type').value;
+
+      if (!tmdbApiKey || !query) return;
+      let container = document.getElementById('search-results');
+      container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Recherche en cours...</p>';
+
+      try {
+        let res = await fetch(`https://api.themoviedb.org/3/search/${searchType}?api_key=${tmdbApiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
+        let data = await res.json();
+
+        if (data.results && data.results.length > 0) {
+          container.innerHTML = '';
+          for (let idx = 0; idx < Math.min(data.results.length, 6); idx++) {
+            let movie = await formatTmdbItem(data.results[idx], searchType);
+            window[`searchResult_${idx}`] = movie;
+
+            let isFav = favoriteTvIds.includes(movie.id);
+            let providerHTML = movie.provider ? `
+              <div class="provider-badge">
+                <img src="${movie.provider.logo}" alt="${movie.provider.name}">
+                <span>${movie.provider.name}</span>
+              </div>` : '';
+
+            let card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+              <img src="${movie.poster || 'https://via.placeholder.com/150'}" onclick="openModalObject(window.searchResult_${idx})" alt="${movie.title}">
+              <div class="card-info" onclick="openModalObject(window.searchResult_${idx})">
+                <div class="card-title">${movie.title}</div>
+                ${providerHTML}
+              </div>
+              ${movie.isTV ? `<button class="btn-fav ${isFav ? 'active' : ''}" onclick="toggleFavoriteTV(${movie.id})">${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}</button>` : ''}
+              <button class="action-btn" style="margin:5px 10px;" onclick='triggerAddMovie(${idx}, false)'>+ Collection</button>
+            `;
+            container.appendChild(card);
+          }
+        } else {
+          container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucun résultat.</p>';
+        }
+      } catch (e) {
+        container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur recherche.</p>';
+      }
+    }
+
     function addAiringToCollection(idx, isWishlist) {
       let tv = window[`airingTV_${idx}`];
-      addMovieToCollection(tv, `Intégrale (Saisons 1 à ${tv.seasonsCount})`, isWishlist);
+      addMovieToCollection(tv, '', isWishlist);
     }
 
-    async function addMovieToCollection(movie, selectedSeasonLabel = '', isWishlist = false) {
-      let finalFormat = isWishlist ? 'À Acheter' : getSelectedFormat();
-      if (movie.isTV) {
-        finalFormat += ` (Série - ${selectedSeasonLabel})`;
-      }
+    function triggerAddMovie(idx, isWishlist) {
+      let movie = window[`searchResult_${idx}`];
+      addMovieToCollection(movie, '', isWishlist);
+    }
 
+    async function addMovieToCollection(movie, label = '', isWishlist = false) {
+      let finalFormat = isWishlist ? 'À Acheter' : getSelectedFormat();
       let movieToSave = { ...movie, format: finalFormat, isWishlist: isWishlist };
 
-      let exists = localCollection.some(item => 
-        item.title.toLowerCase() === movieToSave.title.toLowerCase() && item.format === movieToSave.format
-      );
-      
-      if (exists) {
-        alert(`⚠️ DOUBLON : "${movieToSave.title}" est déjà présent.`);
-      } else {
+      let exists = localCollection.some(item => item.title.toLowerCase() === movieToSave.title.toLowerCase() && item.format === movieToSave.format);
+      if (exists) alert(`⚠️ DOUBLON : "${movieToSave.title}" est déjà présent.`);
+      else {
         await db.collection("movies").add(movieToSave);
-        alert(`✅ Ajouté avec succès : "${movieToSave.title}"`);
+        alert(`✅ Ajouté : "${movieToSave.title}"`);
       }
-    }
-
-    async function moveToCollection(docId) {
-      let targetFormat = getSelectedFormat();
-      let movie = localCollection.find(m => m.docId === docId);
-      if (!movie) return;
-
-      let cleanFormat = targetFormat + (movie.isTV ? movie.format.replace('À Acheter', '') : '');
-
-      await db.collection("movies").doc(docId).update({
-        isWishlist: false,
-        format: cleanFormat
-      });
-
-      alert(`🎉 "${movie.title}" a été basculé dans la collection physique (${cleanFormat}) !`);
-    }
-
-    async function deleteMovie(docId) {
-      if (confirm("Confirmer la suppression de ce titre ?")) {
-        await db.collection("movies").doc(docId).delete();
-        closeModal();
-      }
-    }
-
-    function populateGenreDropdown() {
-      let select = document.getElementById('collection-genre-filter');
-      let currentVal = select.value;
-      
-      let genresSet = new Set();
-      localCollection.forEach(m => {
-        if (m.genres && m.genres !== 'N/A') {
-          m.genres.split(',').forEach(g => genresSet.add(g.trim()));
-        }
-      });
-
-      let sortedGenres = Array.from(genresSet).sort();
-      select.innerHTML = '<option value="">🎭 Tous les genres</option>';
-      sortedGenres.forEach(g => {
-        let opt = document.createElement('option');
-        opt.value = g;
-        opt.innerText = g;
-        select.appendChild(opt);
-      });
-      select.value = currentVal;
     }
 
     function renderCollection() {
       let filterText = document.getElementById('collection-filter-input').value.toLowerCase().trim();
-      let selectedGenre = document.getElementById('collection-genre-filter').value;
-      let sortType = document.getElementById('collection-sort').value;
-
       let collectionOnly = localCollection.filter(m => !m.isWishlist);
+      let filtered = collectionOnly.filter(m => m.title && m.title.toLowerCase().includes(filterText));
 
-      let filtered = collectionOnly.filter(m => {
-        let titleMatch = m.title && m.title.toLowerCase().includes(filterText);
-        let dirMatch = m.director && m.director.name && m.director.name.toLowerCase().includes(filterText);
-        let castMatch = m.cast && m.cast.some(c => c.name.toLowerCase().includes(filterText));
-        let genreTextMatch = m.genres && m.genres.toLowerCase().includes(filterText);
-
-        let textMatches = titleMatch || dirMatch || castMatch || genreTextMatch;
-
-        let genreDropdownMatch = true;
-        if (selectedGenre) {
-          genreDropdownMatch = m.genres && m.genres.includes(selectedGenre);
-        }
-
-        return textMatches && genreDropdownMatch;
-      });
-
-      if (sortType === 'az') {
-        filtered.sort((a, b) => a.title.localeCompare(b.title));
-      } else if (sortType === 'za') {
-        filtered.sort((a, b) => b.title.localeCompare(a.title));
-      }
-
-      document.getElementById('collection-count').innerText = `Ma Collection Cloud (${filtered.length} / ${collectionOnly.length})`;
+      document.getElementById('collection-count').innerText = `Ma Collection Cloud (${filtered.length})`;
       let grid = document.getElementById('collection-grid');
       grid.innerHTML = '';
 
-      if (filtered.length === 0) {
-        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa; margin-top:20px;">Aucun élément trouvé.</p>';
-        return;
-      }
-
       filtered.forEach((movie) => {
-        let posterUrl = movie.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
-        let formatClass = movie.format.includes('4K') ? 'format-4K' : (movie.format.includes('Blu-ray') ? 'format-Bluray' : 'format-DVD');
-        
         let card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
-          <span class="badge-format ${formatClass}">${movie.format}</span>
-          <img src="${posterUrl}" onclick="openModalByDocId('${movie.docId}')" alt="${movie.title}">
-          <div class="card-info" onclick="openModalByDocId('${movie.docId}')">
+          <img src="${movie.poster || 'https://via.placeholder.com/150'}" onclick="openModalObject(localCollection.find(m => m.docId === '${movie.docId}'))">
+          <div class="card-info" onclick="openModalObject(localCollection.find(m => m.docId === '${movie.docId}'))">
             <div class="card-title">${movie.title}</div>
           </div>
         `;
@@ -797,283 +711,24 @@
       let grid = document.getElementById('wishlist-grid');
       grid.innerHTML = '';
 
-      if (wishlistOnly.length === 0) {
-        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa; margin-top:20px;">Votre liste d\'envies est vide.</p>';
-        return;
-      }
-
       wishlistOnly.forEach((movie) => {
-        let posterUrl = movie.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
-        
         let card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
-          <span class="badge-format format-Wish">💡 Envie</span>
-          <img src="${posterUrl}" onclick="openModalByDocId('${movie.docId}')" alt="${movie.title}">
-          <div class="card-info" onclick="openModalByDocId('${movie.docId}')">
+          <img src="${movie.poster || 'https://via.placeholder.com/150'}" onclick="openModalObject(localCollection.find(m => m.docId === '${movie.docId}'))">
+          <div class="card-info" onclick="openModalObject(localCollection.find(m => m.docId === '${movie.docId}'))">
             <div class="card-title">${movie.title}</div>
           </div>
-          <button class="btn-move" onclick="moveToCollection('${movie.docId}')">↗️ Déplacer en Collection</button>
-          <button class="btn-delete" onclick="deleteMovie('${movie.docId}')">Supprimer</button>
         `;
         grid.appendChild(card);
       });
-    }
-
-    function openModalByDocId(docId) {
-      let movie = localCollection.find(m => m.docId === docId);
-      if (!movie) return;
-
-      document.getElementById('modal-poster').src = movie.poster || 'https://via.placeholder.com/300x450';
-      document.getElementById('modal-title').innerText = movie.title;
-      document.getElementById('modal-format').innerText = movie.format;
-      document.getElementById('modal-genres').innerText = movie.genres || 'Général';
-      document.getElementById('modal-runtime').innerText = movie.runtime || 'N/A';
-
-      let dirEl = document.getElementById('modal-director');
-      dirEl.innerHTML = '';
-      if (movie.director && movie.director.id) {
-        let span = document.createElement('span');
-        span.className = 'clickable-person';
-        span.innerText = movie.director.name;
-        span.onclick = () => inspectPerson(movie.director.id, movie.director.name);
-        dirEl.appendChild(span);
-      } else {
-        dirEl.innerText = movie.director ? movie.director.name : 'Inconnu';
-      }
-
-      let castEl = document.getElementById('modal-cast');
-      castEl.innerHTML = '';
-      if (movie.cast && Array.isArray(movie.cast) && movie.cast.length > 0) {
-        movie.cast.forEach((c, idx) => {
-          let span = document.createElement('span');
-          span.className = 'clickable-person';
-          span.innerText = c.name;
-          span.onclick = () => inspectPerson(c.id, c.name);
-          castEl.appendChild(span);
-          if (idx < movie.cast.length - 1) {
-            castEl.appendChild(document.createTextNode(', '));
-          }
-        });
-      } else {
-        castEl.innerText = 'Non renseigné';
-      }
-
-      document.getElementById('modal-date').innerText = formatDateFR(movie.release_date);
-      document.getElementById('modal-rating').innerText = movie.vote_average;
-      document.getElementById('modal-overview').innerText = movie.overview;
-      
-      let linkEl = document.getElementById('modal-tmdb-link');
-      if (movie.tmdb_url) {
-        linkEl.href = movie.tmdb_url;
-        linkEl.style.display = 'block';
-      } else {
-        linkEl.style.display = 'none';
-      }
-
-      let imdbEl = document.getElementById('modal-imdb-link');
-      if (movie.imdb_url) {
-        imdbEl.href = movie.imdb_url;
-        imdbEl.style.display = 'block';
-      } else {
-        imdbEl.style.display = 'none';
-      }
-
-      let delBtn = document.getElementById('modal-delete-btn');
-      delBtn.onclick = function() { deleteMovie(movie.docId); };
-
-      document.getElementById('movie-modal').style.display = 'block';
-    }
-
-    function closeModal() { document.getElementById('movie-modal').style.display = 'none'; }
-    function closePosterModal() { document.getElementById('poster-modal').style.display = 'none'; }
-    function closeArtistModal() { document.getElementById('artist-modal').style.display = 'none'; }
-
-    /* RECHERCHE AVEC OPTION FAVORI POUR LES SÉRIES */
-    async function searchMovie() {
-      let query = document.getElementById('search-input').value.trim();
-      let searchType = document.getElementById('search-type').value;
-
-      if (!tmdbApiKey) return alert("Veuillez saisir votre clé API TMDB dans l'onglet Configuration.");
-      if (!query) return;
-
-      let container = document.getElementById('search-results');
-      container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Recherche en cours...</p>';
-
-      try {
-        let res = await fetch(`https://api.themoviedb.org/3/search/${searchType}?api_key=${tmdbApiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
-        if (!res.ok) throw new Error("Erreur de recherche");
-        let data = await res.json();
-
-        if (data.results && data.results.length > 0) {
-          container.innerHTML = '';
-          let maxItems = Math.min(data.results.length, 6);
-          for (let idx = 0; idx < maxItems; idx++) {
-            let m = data.results[idx];
-            let movie = await formatTmdbItem(m, searchType);
-            window[`searchResult_${idx}`] = movie;
-
-            let seasonSelectorHTML = '';
-            let favBtnHTML = '';
-
-            if (movie.isTV) {
-              let isFav = favoriteTvIds.includes(movie.id);
-              favBtnHTML = `
-                <button class="btn-fav btn-fav-search ${isFav ? 'active' : ''}" data-tvid="${movie.id}" onclick="toggleFavoriteTV(${movie.id})">
-                  ${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}
-                </button>
-              `;
-
-              seasonSelectorHTML = `<div style="padding:0 10px;"><select id="season-select-${idx}" style="font-size:0.8rem; padding:6px; margin-top:5px;">`;
-              seasonSelectorHTML += `<option value="Intégrale (Saisons 1 à ${movie.seasonsCount})">📦 Intégrale (Saisons 1 à ${movie.seasonsCount})</option>`;
-              for (let s = 1; s <= movie.seasonsCount; s++) {
-                seasonSelectorHTML += `<option value="Saison ${s}">📺 Saison ${s}</option>`;
-              }
-              seasonSelectorHTML += `</select></div>`;
-            }
-
-            let card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-              <img id="img-result-${idx}" src="${movie.poster || 'https://via.placeholder.com/150x220'}" alt="${movie.title}">
-              <div class="card-info"><div class="card-title">${movie.title}</div></div>
-              ${seasonSelectorHTML}
-              ${favBtnHTML}
-              <button style="background:#444; color:white; border:none; padding:6px; margin:5px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;" onclick="openPosterGallery(${movie.id}, ${idx})">🔄 Jaquette</button>
-              <button class="action-btn" style="margin:5px 10px;" onclick='triggerAddMovie(${idx}, false)'>+ Collection</button>
-              <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='triggerAddMovie(${idx}, true)'>💡 Liste d'envies</button>
-            `;
-            container.appendChild(card);
-          }
-        } else {
-          container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucun résultat.</p>';
-        }
-      } catch (e) {
-        container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur lors de la recherche.</p>';
-      }
-    }
-
-    function triggerAddMovie(idx, isWishlist) {
-      let movie = window[`searchResult_${idx}`];
-      let seasonLabel = '';
-      if (movie.isTV) {
-        seasonLabel = document.getElementById(`season-select-${idx}`).value;
-      }
-      addMovieToCollection(movie, seasonLabel, isWishlist);
-    }
-
-    async function openPosterGallery(movieId, cardIndex) {
-      let searchType = document.getElementById('search-type').value;
-      try {
-        let res = await fetch(`https://api.themoviedb.org/3/${searchType}/${movieId}/images?api_key=${tmdbApiKey}&include_image_language=fr,en,null`);
-        if (!res.ok) throw new Error("Erreur images");
-        let data = await res.json();
-
-        let gallery = document.getElementById('poster-gallery');
-        gallery.innerHTML = '';
-
-        if (data.posters && data.posters.length > 0) {
-          data.posters.slice(0, 15).forEach(imgData => {
-            let imgUrl = `https://image.tmdb.org/t/p/w500${imgData.file_path}`;
-            let img = document.createElement('img');
-            img.src = imgUrl;
-            img.onclick = function() {
-              document.getElementById(`img-result-${cardIndex}`).src = imgUrl;
-              window[`searchResult_${cardIndex}`].poster = imgUrl;
-              closePosterModal();
-            };
-            gallery.appendChild(img);
-          });
-          document.getElementById('poster-modal').style.display = 'block';
-        } else {
-          alert("Aucune affiche alternative.");
-        }
-      } catch(e) {
-        alert("Erreur lors de la récupération des affiches.");
-      }
-    }
-
-    async function inspectPerson(personId, personName) {
-      if (!tmdbApiKey) return;
-      document.getElementById('artist-name').innerText = personName;
-
-      let ownedList = document.getElementById('artist-owned-list');
-      ownedList.innerHTML = '';
-      
-      let matchedMovies = localCollection.filter(m => {
-        let inDir = m.director && m.director.name === personName;
-        let inCast = m.cast && m.cast.some(c => c.name === personName);
-        return inDir || inCast;
-      });
-
-      if (matchedMovies.length > 0) {
-        matchedMovies.forEach(m => {
-          let card = document.createElement('div');
-          card.className = 'card';
-          card.innerHTML = `
-            <img src="${m.poster || 'https://via.placeholder.com/150'}" alt="${m.title}">
-            <div class="card-info"><div class="card-title">${m.title}</div><div style="font-size:0.75rem; color:#aaa;">${m.format}</div></div>
-          `;
-          ownedList.appendChild(card);
-        });
-      } else {
-        ownedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Aucun élément trouvé.</p>';
-      }
-
-      let suggestedList = document.getElementById('artist-suggested-list');
-      suggestedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Chargement des suggestions...</p>';
-
-      try {
-        let res = await fetch(`https://api.themoviedb.org/3/person/${personId}/movie_credits?api_key=${tmdbApiKey}&language=fr-FR`);
-        if (!res.ok) throw new Error("Erreur artiste");
-        let data = await res.json();
-        
-        let allCredits = [];
-        if (data.cast) allCredits = allCredits.concat(data.cast);
-        if (data.crew) allCredits = allCredits.concat(data.crew.filter(c => c.job === 'Director'));
-
-        let ownedIds = localCollection.map(c => c.id);
-        let suggestions = allCredits
-          .filter(m => !ownedIds.includes(m.id) && m.poster_path)
-          .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-          .slice(0, 6);
-
-        suggestedList.innerHTML = '';
-        if (suggestions.length > 0) {
-          for (let idx = 0; idx < suggestions.length; idx++) {
-            let m = suggestions[idx];
-            let formatted = await formatTmdbItem(m, 'movie');
-            window[`artistSuggest_${idx}`] = formatted;
-
-            let card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-              <img src="${formatted.poster}" alt="${formatted.title}">
-              <div class="card-info"><div class="card-title">${formatted.title}</div></div>
-              <button class="action-btn" style="margin:5px; padding:6px; font-size:0.75rem;" onclick='addSuggestedMovie(${idx})'>+ Ajouter</button>
-            `;
-            suggestedList.appendChild(card);
-          }
-        } else {
-          suggestedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Aucune suggestion disponible.</p>';
-        }
-      } catch (e) {
-        suggestedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Erreur de chargement.</p>';
-      }
-
-      document.getElementById('artist-modal').style.display = 'block';
-    }
-
-    function addSuggestedMovie(idx) {
-      let movie = window[`artistSuggest_${idx}`];
-      addMovieToCollection(movie);
     }
 
     async function saveApiKey() {
       let key = document.getElementById('api-key-input').value.trim();
       if (key) {
         await db.collection("settings").doc("tmdb").set({ key: key });
-        alert('Clé enregistrée dans le Cloud !');
+        alert('Clé enregistrée !');
         loadAiringTodayTV();
       }
     }
