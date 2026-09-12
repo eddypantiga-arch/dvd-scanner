@@ -3,734 +3,622 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DVDthèque Cloud</title>
-  
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-
+  <title>Ma DVDthèque & Séries</title>
   <style>
     :root {
       --bg-color: #121212;
       --card-bg: #1e1e1e;
-      --accent: #e50914;
-      --imdb-yellow: #f5c518;
-      --text: #ffffff;
-      --text-sub: #aaaaaa;
+      --accent-color: #e50914;
+      --text-color: #ffffff;
+      --text-secondary: #aaaaaa;
+      --border-color: #333333;
     }
+
     body {
-      margin: 0; padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg-color);
-      color: var(--text);
-      padding-bottom: 75px;
+      color: var(--text-color);
+      margin: 0;
+      padding: 0;
     }
+
     header {
       background-color: #000;
       padding: 15px;
       text-align: center;
-      font-weight: bold;
-      font-size: 1.1rem;
-      border-bottom: 1px solid #333;
-      color: var(--accent);
+      border-bottom: 2px solid var(--accent-color);
     }
-    .container { padding: 15px; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 15px;
-    }
-    .card {
-      background: var(--card-bg);
-      border-radius: 8px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      border: 1px solid #333;
-      position: relative;
-    }
-    .card.is-favorite {
-      border: 1px solid var(--imdb-yellow);
-      box-shadow: 0 0 10px rgba(245, 197, 24, 0.25);
-    }
-    .card img {
-      width: 100%;
-      height: 230px;
-      object-fit: cover;
-      background-color: #2a2a2a;
-      cursor: pointer;
-    }
-    .card-info { padding: 10px; flex-grow: 1; cursor: pointer; }
-    .card-title { font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; }
-    
-    .badge-format {
-      position: absolute;
-      top: 8px; right: 8px;
-      padding: 4px 8px; border-radius: 4px;
-      font-size: 0.7rem; font-weight: bold; color: #fff;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.6);
-      pointer-events: none;
-      text-align: right;
-    }
-    .format-DVD { background-color: #e67e22; }
-    .format-Bluray { background-color: #2980b9; }
-    .format-4K { background-color: #8e44ad; }
-    .format-Wish { background-color: #d35400; }
 
-    .btn-delete {
-      background: var(--accent);
-      color: white; border: none;
-      padding: 8px; margin: 5px 10px 10px 10px;
-      border-radius: 5px; font-weight: bold;
-      cursor: pointer;
-    }
-    .btn-move {
-      background: #27ae60;
-      color: white; border: none;
-      padding: 8px; margin: 10px 10px 0 10px;
-      border-radius: 5px; font-weight: bold;
-      cursor: pointer;
+    header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
 
     nav {
-      position: fixed; bottom: 0; width: 100%;
-      background: #000; display: flex;
-      justify-content: space-around; border-top: 1px solid #333;
-      padding: 10px 0; z-index: 99;
+      display: flex;
+      justify-content: space-around;
+      background-color: #1a1a1a;
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
+
     nav button {
-      background: none; border: none;
-      color: var(--text-sub); font-size: 0.75rem;
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      padding: 12px 5px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      flex-grow: 1;
+      text-transform: uppercase;
+    }
+
+    nav button.active {
+      color: var(--accent-color);
+      border-bottom: 3px solid var(--accent-color);
+    }
+
+    .container {
+      padding: 15px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .search-bar, .filter-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+
+    input[type="text"], select, input[type="file"] {
+      background-color: var(--card-bg);
+      color: #fff;
+      border: 1px solid var(--border-color);
+      padding: 10px;
+      border-radius: 4px;
+      flex-grow: 1;
+      font-size: 0.9rem;
+    }
+
+    button.action-btn {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 15px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      cursor: pointer;
+      border: 1px solid #222;
+    }
+
+    .card img {
+      width: 100%;
+      height: 190px;
+      object-fit: cover;
+    }
+
+    .card-info {
+      padding: 8px;
+      font-size: 0.8rem;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-meta {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+
+    .badge {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.65rem;
+      font-weight: bold;
+      border: 1px solid #555;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      padding: 15px;
+      box-sizing: border-box;
+    }
+
+    .modal-content {
+      background: var(--card-bg);
+      border-radius: 8px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 20px;
+      position: relative;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 1.5rem;
+      color: #fff;
       cursor: pointer;
     }
-    nav button.active { color: var(--accent); }
 
-    .modal {
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.85); z-index: 1000;
-      overflow-y: auto; padding: 20px; box-sizing: border-box;
-    }
-    .modal-content {
-      background: var(--card-bg); border-radius: 12px;
-      padding: 20px; max-width: 500px; margin: 20px auto;
-      position: relative; border: 1px solid #444;
-    }
-    .close-btn {
-      position: absolute; top: 10px; right: 15px;
-      font-size: 28px; color: #fff; cursor: pointer;
-    }
-    .modal img { width: 100%; border-radius: 8px; margin-bottom: 15px; }
-    
-    input, select, button.action-btn {
-      width: 100%; padding: 12px; margin-top: 10px;
-      border-radius: 6px; border: none; box-sizing: border-box;
-    }
-    input, select { background: #2a2a2a; color: white; border: 1px solid #444; font-size: 1rem; }
-    button.action-btn { background: var(--accent); color: white; font-weight: bold; font-size: 1rem; cursor: pointer; }
-
-    .btn-fav {
-      background: #333; color: #aaa;
-      border: 1px solid #555; border-radius: 4px;
-      padding: 6px; font-size: 0.75rem; font-weight: bold;
-      cursor: pointer; margin: 5px 10px 0 10px;
-    }
-    .btn-fav.active {
-      background: var(--imdb-yellow); color: #000;
-      border: 1px solid var(--imdb-yellow);
+    .format-selector {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
     }
 
-    .btn-mic {
-      background: #27ae60; color: white; font-size: 1.1rem; font-weight: bold;
-      padding: 18px; border: none; border-radius: 8px; width: 100%;
-      cursor: pointer; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 10px;
-    }
-    .btn-mic.listening { background: #c0392b; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-
-    .selector-box {
-      background: #222; padding: 12px; border-radius: 8px;
-      margin-bottom: 15px; border: 1px solid #333;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-    }
-    .selector-box label { font-size: 0.75rem; color: #aaa; display: block; margin-bottom: 4px; }
-
-    .filter-box {
-      background: #1a1a1a; padding: 10px; border-radius: 8px;
-      margin-bottom: 15px; border: 1px solid #333;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-
-    .poster-gallery {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-      max-height: 300px; overflow-y: auto; margin-top: 10px; padding: 5px;
-    }
-    .poster-gallery img {
-      width: 100%; height: 120px; object-fit: cover; border-radius: 4px; cursor: pointer;
-    }
-
-    .meta-item { margin-bottom: 8px; font-size: 0.9rem; line-height: 1.4; }
-    .meta-item strong { color: var(--accent); }
-    .clickable-person { color: #38bdf8; text-decoration: underline; cursor: pointer; margin-right: 5px; }
-
-    .btn-external {
-      background: #0284c7; color: white; text-decoration: none;
-      display: block; text-align: center; padding: 10px; border-radius: 6px; font-weight: bold; margin-top: 10px;
-    }
-    .btn-imdb {
-      background: var(--imdb-yellow); color: #000; text-decoration: none;
-      display: block; text-align: center; padding: 10px; border-radius: 6px; font-weight: bold; margin-top: 10px;
-    }
-
-    .artist-section-title {
-      font-size: 0.95rem; font-weight: bold; color: #f59e0b;
-      border-bottom: 1px solid #444; padding-bottom: 5px; margin-top: 15px; margin-bottom: 10px;
-    }
-    
-    .section-title {
-      font-size: 1.05rem; font-weight: bold; color: #38bdf8;
-      border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px;
-    }
-
-    .date-group-header {
-      grid-column: 1 / -1;
-      background: #252525; color: var(--imdb-yellow);
-      padding: 8px 12px; border-radius: 6px; font-weight: bold;
-      font-size: 0.95rem; margin-top: 10px; border-left: 4px solid var(--imdb-yellow);
-    }
-
-    .ep-tag {
-      background-color: rgba(56, 189, 248, 0.15);
-      border-left: 3px solid #38bdf8;
-      padding: 6px; margin-top: 8px; border-radius: 0 4px 4px 0;
-    }
-    .ep-num { font-weight: bold; color: #38bdf8; font-size: 0.75rem; display: block; }
-    .ep-title-text { color: #ddd; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
-
-    .provider-badge {
-      display: flex; align-items: center; gap: 6px;
-      background: #2a2a2a; padding: 4px 8px; border-radius: 4px;
-      margin-top: 6px; font-size: 0.75rem; color: #fff;
-    }
-    .provider-badge img {
-      width: 18px; height: 18px; border-radius: 3px; object-fit: cover;
+    .format-selector label {
+      font-size: 0.85rem;
+      cursor: pointer;
     }
   </style>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body>
 
-  <header>🎬 DVDthèque Cloud</header>
+  <header>
+    <h1>Ma DVDthèque</h1>
+  </header>
+
+  <nav>
+    <button class="nav-btn active" onclick="switchTab('collection')">Collection</button>
+    <button class="nav-btn" onclick="switchTab('search')">Recherche</button>
+    <button class="nav-btn" onclick="switchTab('airing')">Séries</button>
+    <button class="nav-btn" onclick="switchTab('wishlist')">Envies</button>
+    <button class="nav-btn" onclick="switchTab('api')">Config</button>
+  </nav>
 
   <div class="container">
-    <div class="selector-box">
-      <div>
-        <label>Type d'élément :</label>
-        <select id="search-type">
-          <option value="movie" selected>🎬 Film seul</option>
-          <option value="tv">📺 Série TV</option>
-          <option value="collection">📦 Coffret / Saga</option>
+
+    <!-- ONGLET 1 : COLLECTION -->
+    <div id="tab-collection" class="tab-content active">
+      <div class="filter-bar">
+        <input type="text" id="search-collection" placeholder="Filtrer par titre, acteur, réalisateur..." oninput="renderCollection()">
+        <select id="filter-genre" onchange="renderCollection()">
+          <option value="">Tous les genres</option>
+        </select>
+        <select id="sort-order" onchange="renderCollection()">
+          <option value="az">Titre (A-Z)</option>
+          <option value="za">Titre (Z-A)</option>
         </select>
       </div>
-      <div>
-        <label>Format physique :</label>
-        <select id="scan-format">
-          <option value="DVD">📀 DVD</option>
-          <option value="Blu-ray">🟦 Blu-ray</option>
-          <option value="4K UHD" selected>💜 4K Ultra HD</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- TAB RECHERCHE -->
-    <div id="tab-search" class="tab-content active">
-      <button id="mic-btn" class="btn-mic" onclick="toggleVoiceInput()">🎙️ DICTÉE VOCALE (Parler)</button>
-
-      <div style="display:flex; gap:5px;">
-        <input type="text" id="search-input" placeholder="Ex: Interstellar, Breaking Bad..." onkeyup="if(event.key==='Enter') searchMovie()">
-        <button onclick="searchMovie()" style="background:var(--accent); color:white; border:none; border-radius:6px; padding:10px 15px; font-weight:bold; cursor:pointer;">🔍</button>
-      </div>
-
-      <p id="search-status" style="text-align:center; color:#ffca28; font-weight:bold; margin-top:10px;"></p>
-      <div id="search-results" class="grid" style="margin-top:15px;"></div>
-
-      <!-- BLOC SÉRIES (FAVORIS ET TENDANCES SEULEMENT) -->
-      <div class="section-title">📺 Diffusion Séries (Favoris & Tendances)</div>
-      <div id="airing-today-grid" class="grid">
-        <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des séries favoris & tendances...</p>
-      </div>
-    </div>
-
-    <!-- TAB COLLECTION -->
-    <div id="tab-collection" class="tab-content">
-      <h3 id="collection-count">Ma Collection Cloud</h3>
-      
-      <div class="filter-box">
-        <input type="text" id="collection-filter-input" placeholder="🔎 Filtrer par titre, acteur, réalisateur, genre..." onkeyup="renderCollection()">
-        
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:5px;">
-          <div>
-            <label style="font-size:0.75rem; color:#aaa;">Filtrer par genre :</label>
-            <select id="collection-genre-filter" onchange="renderCollection()" style="padding:6px; margin:0; font-size:0.85rem;">
-              <option value="">🎭 Tous les genres</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:0.75rem; color:#aaa;">Ordre d'affichage :</label>
-            <select id="collection-sort" onchange="renderCollection()" style="padding:6px; margin:0; font-size:0.85rem;">
-              <option value="az">🔤 Alphabétique (A-Z)</option>
-              <option value="za">🔤 Inverse (Z-A)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
       <div id="collection-grid" class="grid"></div>
     </div>
 
-    <!-- TAB LISTE D'ENVIES -->
+    <!-- ONGLET 2 : RECHERCHE TMDB -->
+    <div id="tab-search" class="tab-content">
+      <div class="search-bar">
+        <input type="text" id="tmdb-query" placeholder="Chercher un film ou une série...">
+        <select id="tmdb-type">
+          <option value="movie">Film</option>
+          <option value="tv">Série</option>
+        </select>
+        <button class="action-btn" onclick="searchMovie()">Chercher</button>
+      </div>
+
+      <div class="format-selector">
+        <span>Format d'ajout :</span>
+        <label><input type="radio" name="format-choice" value="DVD" checked> DVD</label>
+        <label><input type="radio" name="format-choice" value="Blu-ray"> Blu-ray</label>
+        <label><input type="radio" name="format-choice" value="4K"> 4K</label>
+      </div>
+
+      <div id="search-grid" class="grid"></div>
+    </div>
+
+    <!-- ONGLET 3 : SÉRIES & DIFFUSIONS -->
+    <div id="tab-airing" class="tab-content">
+      <h3>Séries en cours de diffusion</h3>
+      <div id="airing-grid" class="grid"></div>
+    </div>
+
+    <!-- ONGLET 4 : LISTE D'ENVIES -->
     <div id="tab-wishlist" class="tab-content">
-      <h3 id="wishlist-count">Ma Liste d'Envies</h3>
-      <p style="font-size: 0.85rem; color: #aaa;">Films ou séries que vous aimeriez acquérir.</p>
+      <h3>Ma Liste d'Envies</h3>
       <div id="wishlist-grid" class="grid"></div>
     </div>
 
-    <!-- TAB CONFIGURATION -->
+    <!-- ONGLET 5 : CONFIGURATION & SAUVEGARDE -->
     <div id="tab-api" class="tab-content">
-      <h3>Configuration Clé API TMDB</h3>
-      <p style="font-size: 0.85rem; color: #aaa;">Obligatoire pour récupérer les jaquettes, plateformes et détails.</p>
-      <input type="text" id="api-key-input" placeholder="Collez votre clé API TMDB">
-      <button class="action-btn" onclick="saveApiKey()">Enregistrer la clé dans le Cloud</button>
+      <h3>Clé API TMDB</h3>
+      <div class="search-bar">
+        <input type="text" id="api-key-input" placeholder="Entrez votre clé API TMDB v3">
+        <button class="action-btn" onclick="saveApiKey()">Enregistrer</button>
+      </div>
+
+      <hr style="margin: 25px 0; border: 0; border-top: 1px solid #333;">
+
+      <h3>💾 Sauvegarde & Restauration</h3>
+      <p style="font-size: 0.85rem; color: #aaa;">Exportez votre collection au format JSON ou réimportez une sauvegarde.</p>
+
+      <button class="action-btn" onclick="exportCollection()" style="background: #27ae60; margin-bottom: 10px;">
+        📥 Télécharger une sauvegarde (Export JSON)
+      </button>
+
+      <label style="font-size: 0.75rem; color: #aaa; display: block; margin-top: 10px;">Restaurer un fichier JSON :</label>
+      <input type="file" id="import-file" accept=".json" onchange="importCollection(event)">
     </div>
+
   </div>
 
-  <!-- MODAL DETAIL -->
-  <div id="movie-modal" class="modal">
+  <!-- MODAL FICHE DÉTAIL -->
+  <div id="detail-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closeModal()">&times;</span>
-      <img id="modal-poster" src="" alt="Affiche">
-      <h2 id="modal-title" style="margin-top:0;"></h2>
-      
-      <div class="meta-item"><strong>Format :</strong> <span id="modal-format"></span></div>
-      <div class="meta-item"><strong>Plateforme :</strong> <span id="modal-provider"></span></div>
-      <div class="meta-item"><strong>Genre :</strong> <span id="modal-genres"></span></div>
-      <div class="meta-item"><strong>Durée / Épisodes :</strong> <span id="modal-runtime"></span></div>
-      <div class="meta-item"><strong>Réalisateur / Créateur :</strong> <span id="modal-director"></span></div>
-      <div class="meta-item"><strong>Casting :</strong> <span id="modal-cast"></span></div>
-      <div class="meta-item"><strong>Date de sortie :</strong> <span id="modal-date"></span></div>
-      <div class="meta-item"><strong>Note :</strong> ⭐ <span id="modal-rating"></span>/10</div>
-      
-      <p style="margin-top:15px;"><strong>Synopsis :</strong></p>
-      <p id="modal-overview" style="color: #ccc; font-size: 0.9rem; line-height: 1.4;"></p>
-
-      <a id="modal-imdb-link" href="#" target="_blank" class="btn-imdb" style="display:none;">🎬 Voir sur IMDb</a>
-      <a id="modal-tmdb-link" href="#" target="_blank" class="btn-external">🔗 Voir sur TMDB Web</a>
-      
-      <button id="modal-delete-btn" class="btn-delete" style="width:100%; margin: 15px 0 0 0; display:none;">🗑️ Supprimer ce titre</button>
+      <div id="modal-body"></div>
     </div>
   </div>
-
-  <!-- MODAL ARTISTE -->
-  <div id="artist-modal" class="modal">
-    <div class="modal-content">
-      <span class="close-btn" onclick="closeArtistModal()">&times;</span>
-      <h2 id="artist-name" style="margin-top:0; color: #38bdf8;"></h2>
-      
-      <div class="artist-section-title">📚 Déjà dans votre collection :</div>
-      <div id="artist-owned-list" class="grid"></div>
-
-      <div class="artist-section-title">💡 Autres titres suggérés :</div>
-      <div id="artist-suggested-list" class="grid"></div>
-    </div>
-  </div>
-
-  <!-- NAVIGATION -->
-  <nav>
-    <button onclick="switchTab('search')" id="nav-search" class="active">🎙️ <span>Recherche</span></button>
-    <button onclick="switchTab('collection')" id="nav-collection">📚 <span>Collection</span></button>
-    <button onclick="switchTab('wishlist')" id="nav-wishlist">💡 <span>Envies</span></button>
-    <button onclick="switchTab('api')" id="nav-api">⚙️ <span>Clé API</span></button>
-  </nav>
 
   <script>
+    // Config Firebase (remplacez avec vos accès réels si nécessaire)
     const firebaseConfig = {
-      apiKey: "AIzaSyABV3JlLUv2gBksRgwSdOBo9MKWPE1s2ZU",
-      authDomain: "dvdtheque-6a431.firebaseapp.com",
-      projectId: "dvdtheque-6a431",
-      storageBucket: "dvdtheque-6a431.firebasestorage.app",
-      messagingSenderId: "1024820482868",
-      appId: "1:1024820482868:web:8be06d09827f7a5bfecb61",
-      measurementId: "G-C75SM4T13P"
+      apiKey: "VOTRE_API_KEY",
+      authDomain: "VOTRE_PROJECT.firebaseapp.com",
+      projectId: "VOTRE_PROJECT_ID",
+      storageBucket: "VOTRE_PROJECT.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abcdef"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
     let localCollection = [];
-    let favoriteTvIds = [];
+    let localFavorites = [];
     let tmdbApiKey = "";
 
-    db.collection("movies").onSnapshot((snapshot) => {
+    // Synchronisation Firestore
+    db.collection("movies").onSnapshot(snapshot => {
       localCollection = [];
-      snapshot.forEach((doc) => {
+      snapshot.forEach(doc => {
         localCollection.push({ docId: doc.id, ...doc.data() });
       });
       populateGenreDropdown();
       renderCollection();
-      renderWishlist();
     });
 
-    db.collection("settings").doc("favorites").onSnapshot((doc) => {
-      favoriteTvIds = (doc.exists && doc.data().tvIds) ? doc.data().tvIds : [];
-      loadAiringTodayTV();
-    });
-
-    db.collection("settings").doc("tmdb").onSnapshot((doc) => {
+    db.collection("config").doc("tmdb").onSnapshot(doc => {
       if (doc.exists && doc.data().key) {
         tmdbApiKey = doc.data().key;
         document.getElementById('api-key-input').value = tmdbApiKey;
-        loadAiringTodayTV();
       }
     });
 
-    function getSelectedFormat() { return document.getElementById('scan-format').value; }
+    db.collection("favorites").onSnapshot(snapshot => {
+      localFavorites = [];
+      snapshot.forEach(doc => localFavorites.push(doc.data().id));
+    });
 
+    // Navigation
     function switchTab(tabName) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
-      document.getElementById('tab-' + tabName).classList.add('active');
-      document.getElementById('nav-' + tabName).classList.add('active');
-      if (tabName === 'collection') renderCollection();
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+      event.target.classList.add('active');
+
+      if (tabName === 'airing') loadAiringTodayTV();
       if (tabName === 'wishlist') renderWishlist();
     }
 
     function formatDateFR(dateStr) {
-      if (!dateStr) return 'Inconnue';
-      let parts = dateStr.split('-');
-      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+      if (!dateStr) return "N/C";
+      const p = dateStr.split('-');
+      return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : dateStr;
     }
 
-    async function fetchMovieDetails(id, type) {
+    function getSelectedFormat() {
+      const radios = document.getElementsByName('format-choice');
+      for (let r of radios) { if (r.checked) return r.value; }
+      return 'DVD';
+    }
+
+    // Sauvegarde Clé API
+    async function saveApiKey() {
+      const key = document.getElementById('api-key-input').value.trim();
+      if (!key) return alert("Veuillez saisir une clé.");
+      await db.collection("config").doc("tmdb").set({ key: key });
+      alert("Clé API enregistrée !");
+    }
+
+    // TMDB Search & Details
+    async function fetchMovieDetails(id, type = 'movie') {
+      if (!tmdbApiKey) return {};
       try {
-        let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&language=fr-FR&append_to_response=credits,external_ids,watch/providers`);
-        if (!res.ok) return {};
+        const res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&append_to_response=credits,watch/providers&language=fr-FR`);
         return await res.json();
-      } catch(e) { return {}; }
+      } catch (e) {
+        return {};
+      }
     }
 
-    async function formatTmdbItem(m, searchType) {
-      let isTV = searchType === 'tv';
-      let typeEndpoint = isTV ? 'tv' : 'movie';
-      let details = await fetchMovieDetails(m.id, typeEndpoint);
-
-      let titleName = isTV ? (details.name || m.name) : (details.title || m.title);
-      let genres = details.genres ? details.genres.map(g => g.name).join(', ') : 'Général';
-      
-      let director = { name: 'Inconnu', id: null };
-      let cast = [];
-      if (details.credits) {
-        let dirObj = details.credits.crew ? details.credits.crew.find(c => c.job === 'Director' || c.job === 'Executive Producer') : null;
-        if (dirObj) director = { name: dirObj.name, id: dirObj.id };
-        if (details.credits.cast) cast = details.credits.cast.slice(0, 5).map(c => ({ name: c.name, id: c.id }));
-      }
-
-      // Plateforme de diffusion
-      let providerInfo = null;
-      if (details['watch/providers'] && details['watch/providers'].results && details['watch/providers'].results.FR) {
-        let frProviders = details['watch/providers'].results.FR;
-        let flatrate = frProviders.flatrate || frProviders.ads || frProviders.buy;
-        if (flatrate && flatrate.length > 0) {
-          providerInfo = {
-            name: flatrate[0].provider_name,
-            logo: `https://image.tmdb.org/t/p/w92${flatrate[0].logo_path}`
-          };
-        }
-      }
-
-      let imdbId = details.external_ids ? details.external_ids.imdb_id : null;
-      let epInfo = null;
-
-      if (isTV) {
-        let ep = details.next_episode_to_air || details.last_episode_to_air;
-        if (ep) {
-          epInfo = {
-            code: `S${String(ep.season_number).padStart(2, '0')}E${String(ep.episode_number).padStart(2, '0')}`,
-            name: ep.name || 'Épisode sans titre',
-            airDate: ep.air_date || '',
-            isNext: !!details.next_episode_to_air
-          };
-        }
-      }
+    function formatTmdbItem(m, searchType) {
+      const directors = m.credits?.crew ? m.credits.crew.filter(c => c.job === 'Director').map(c => c.name) : [];
+      const cast = m.credits?.cast ? m.credits.cast.slice(0, 5).map(c => c.name) : [];
+      const providers = m['watch/providers']?.results?.FR?.flatrate ? m['watch/providers'].results.FR.flatrate.map(p => p.provider_name) : [];
 
       return {
         id: m.id,
-        title: titleName || 'Titre inconnu',
-        poster: (details.poster_path || m.poster_path) ? `https://image.tmdb.org/t/p/w500${details.poster_path || m.poster_path}` : '',
-        overview: details.overview || m.overview || 'Aucun résumé disponible.',
-        release_date: details.first_air_date || details.release_date || 'Inconnue',
-        vote_average: (details.vote_average || m.vote_average) ? (details.vote_average || m.vote_average).toFixed(1) : 'N/A',
-        runtime: isTV ? `${details.number_of_seasons || 1} Saison(s)` : `${details.runtime || 0} min`,
-        genres: genres,
-        director: director,
+        title: m.title || m.name,
+        type: searchType,
+        year: (m.release_date || m.first_air_date || '').slice(0, 4),
+        releaseDate: m.release_date || m.first_air_date || '',
+        poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
+        overview: m.overview || 'Aucun synopsis disponible.',
+        genres: m.genres ? m.genres.map(g => g.name) : [],
+        directors: directors,
         cast: cast,
-        provider: providerInfo,
-        tmdb_url: `https://www.themoviedb.org/${typeEndpoint}/${m.id}`,
-        imdb_url: imdbId ? `https://www.imdb.com/title/${imdbId}` : null,
-        isTV: isTV,
-        seasonsCount: details.number_of_seasons || 1,
-        episodeInfo: epInfo
+        providers: providers
       };
     }
 
-    async function toggleFavoriteTV(tvId) {
-      let index = favoriteTvIds.indexOf(tvId);
-      if (index > -1) favoriteTvIds.splice(index, 1);
-      else favoriteTvIds.push(tvId);
-      await db.collection("settings").doc("favorites").set({ tvIds: favoriteTvIds });
-    }
-
-    /* CHARGEMENT UNICITÉ : FAVORIS ET TENDANCES */
-    async function loadAiringTodayTV() {
-      if (!tmdbApiKey) return;
-      let grid = document.getElementById('airing-today-grid');
-      grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des séries...</p>';
-
-      try {
-        let resTrending = await fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${tmdbApiKey}&language=fr-FR`);
-        let dataTrending = await resTrending.json();
-        
-        let rawList = dataTrending.results || [];
-        let itemsMap = new Map();
-
-        // 1. Charger les favoris
-        for (let favId of favoriteTvIds) {
-          let item = await formatTmdbItem({ id: favId }, 'tv');
-          if (item.id) itemsMap.set(item.id, item);
-        }
-
-        // 2. Charger les tendances (limite pour garder de la clarté)
-        for (let tv of rawList.slice(0, 8)) {
-          if (!itemsMap.has(tv.id)) {
-            let item = await formatTmdbItem(tv, 'tv');
-            if (item.id) itemsMap.set(item.id, item);
-          }
-        }
-
-        let tvList = Array.from(itemsMap.values());
-        grid.innerHTML = '';
-
-        if (tvList.length === 0) {
-          grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucune série trouvée.</p>';
-          return;
-        }
-
-        let groupedByDate = {};
-        tvList.forEach((movieItem, globalIdx) => {
-          window[`airingTV_${globalIdx}`] = movieItem;
-          movieItem._globalIdx = globalIdx;
-
-          let dateKey = movieItem.episodeInfo && movieItem.episodeInfo.airDate ? movieItem.episodeInfo.airDate : 'Date inconnue';
-          if (!groupedByDate[dateKey]) groupedByDate[dateKey] = [];
-          groupedByDate[dateKey].push(movieItem);
-        });
-
-        let sortedDates = Object.keys(groupedByDate).sort((a, b) => {
-          if (a === 'Date inconnue') return 1;
-          if (b === 'Date inconnue') return -1;
-          return a.localeCompare(b);
-        });
-
-        sortedDates.forEach(dateStr => {
-          let items = groupedByDate[dateStr];
-          let dateHeader = document.createElement('div');
-          dateHeader.className = 'date-group-header';
-          dateHeader.innerText = `📅 Date : ${formatDateFR(dateStr)}`;
-          grid.appendChild(dateHeader);
-
-          items.forEach(movieItem => {
-            let isFav = favoriteTvIds.includes(movieItem.id);
-            let providerHTML = movieItem.provider ? `
-              <div class="provider-badge">
-                <img src="${movieItem.provider.logo}" alt="${movieItem.provider.name}">
-                <span>${movieItem.provider.name}</span>
-              </div>` : '';
-
-            let epHTML = movieItem.episodeInfo ? `
-              <div class="ep-tag">
-                <span class="ep-num">📌 ${movieItem.episodeInfo.code}</span>
-                <div class="ep-title-text">${movieItem.episodeInfo.name}</div>
-              </div>` : '';
-
-            let card = document.createElement('div');
-            card.className = `card ${isFav ? 'is-favorite' : ''}`;
-            card.innerHTML = `
-              <img src="${movieItem.poster || 'https://via.placeholder.com/150'}" onclick="openModalObject(window.airingTV_${movieItem._globalIdx})" alt="${movieItem.title}">
-              <div class="card-info" onclick="openModalObject(window.airingTV_${movieItem._globalIdx})">
-                <div class="card-title">${movieItem.title}</div>
-                <div style="font-size:0.75rem; color:#aaa;">⭐ ${movieItem.vote_average}/10</div>
-                ${providerHTML}
-                ${epHTML}
-              </div>
-              <button class="btn-fav ${isFav ? 'active' : ''}" onclick="toggleFavoriteTV(${movieItem.id})">
-                ${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}
-              </button>
-              <button class="action-btn" style="margin:5px 10px;" onclick='addAiringToCollection(${movieItem._globalIdx}, false)'>+ Collection</button>
-            `;
-            grid.appendChild(card);
-          });
-        });
-
-      } catch (e) {
-        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur de chargement.</p>';
-      }
-    }
-
-    function openModalObject(movie) {
-      document.getElementById('modal-poster').src = movie.poster || 'https://via.placeholder.com/300x450';
-      document.getElementById('modal-title').innerText = movie.title;
-      document.getElementById('modal-format').innerText = movie.format || (movie.isTV ? 'Série TV' : 'Film');
-      
-      let provEl = document.getElementById('modal-provider');
-      provEl.innerHTML = movie.provider ? `<img src="${movie.provider.logo}" style="width:20px; vertical-align:middle; margin-right:5px; border-radius:3px;"> ${movie.provider.name}` : 'Non spécifiée / TV';
-
-      document.getElementById('modal-genres').innerText = movie.genres || 'Général';
-      document.getElementById('modal-runtime').innerText = movie.runtime || 'N/A';
-      document.getElementById('modal-date').innerText = formatDateFR(movie.release_date);
-      document.getElementById('modal-rating').innerText = movie.vote_average;
-      document.getElementById('modal-overview').innerText = movie.overview;
-
-      let dirEl = document.getElementById('modal-director');
-      dirEl.innerHTML = movie.director ? movie.director.name : 'Inconnu';
-
-      let castEl = document.getElementById('modal-cast');
-      castEl.innerText = movie.cast ? movie.cast.map(c => c.name).join(', ') : 'Inconnu';
-
-      document.getElementById('modal-tmdb-link').href = movie.tmdb_url || '#';
-      document.getElementById('modal-delete-btn').style.display = 'none';
-
-      document.getElementById('movie-modal').style.display = 'block';
-    }
-
-    function closeModal() { document.getElementById('movie-modal').style.display = 'none'; }
-    function closeArtistModal() { document.getElementById('artist-modal').style.display = 'none'; }
-
     async function searchMovie() {
-      let query = document.getElementById('search-input').value.trim();
-      let searchType = document.getElementById('search-type').value;
+      const query = document.getElementById('tmdb-query').value.trim();
+      const type = document.getElementById('tmdb-type').value;
+      if (!query || !tmdbApiKey) return alert("Vérifiez la recherche et la clé API.");
 
-      if (!tmdbApiKey || !query) return;
-      let container = document.getElementById('search-results');
-      container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Recherche en cours...</p>';
+      const res = await fetch(`https://api.themoviedb.org/3/search/${type}?api_key=${tmdbApiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
+      const data = await res.json();
+      
+      const grid = document.getElementById('search-grid');
+      grid.innerHTML = '';
 
-      try {
-        let res = await fetch(`https://api.themoviedb.org/3/search/${searchType}?api_key=${tmdbApiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
-        let data = await res.json();
+      for (let item of data.results) {
+        const full = await fetchMovieDetails(item.id, type);
+        const formatted = formatTmdbItem(full, type);
 
-        if (data.results && data.results.length > 0) {
-          container.innerHTML = '';
-          for (let idx = 0; idx < Math.min(data.results.length, 6); idx++) {
-            let movie = await formatTmdbItem(data.results[idx], searchType);
-            window[`searchResult_${idx}`] = movie;
-
-            let isFav = favoriteTvIds.includes(movie.id);
-            let providerHTML = movie.provider ? `
-              <div class="provider-badge">
-                <img src="${movie.provider.logo}" alt="${movie.provider.name}">
-                <span>${movie.provider.name}</span>
-              </div>` : '';
-
-            let card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-              <img src="${movie.poster || 'https://via.placeholder.com/150'}" onclick="openModalObject(window.searchResult_${idx})" alt="${movie.title}">
-              <div class="card-info" onclick="openModalObject(window.searchResult_${idx})">
-                <div class="card-title">${movie.title}</div>
-                ${providerHTML}
-              </div>
-              ${movie.isTV ? `<button class="btn-fav ${isFav ? 'active' : ''}" onclick="toggleFavoriteTV(${movie.id})">${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}</button>` : ''}
-              <button class="action-btn" style="margin:5px 10px;" onclick='triggerAddMovie(${idx}, false)'>+ Collection</button>
-            `;
-            container.appendChild(card);
-          }
-        } else {
-          container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucun résultat.</p>';
-        }
-      } catch (e) {
-        container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur recherche.</p>';
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <img src="${formatted.poster || 'https://via.placeholder.com/150x225?text=No+Cover'}" alt="${formatted.title}">
+          <div class="card-info">
+            <div class="card-title">${formatted.title}</div>
+            <div class="card-meta">${formatted.year}</div>
+            <button class="action-btn" style="margin-top:5px; font-size:0.7rem;" onclick="triggerAddMovie('${formatted.id}', '${type}')">+ Ajouter</button>
+          </div>
+        `;
+        grid.appendChild(card);
       }
     }
 
-    function addAiringToCollection(idx, isWishlist) {
-      let tv = window[`airingTV_${idx}`];
-      addMovieToCollection(tv, '', isWishlist);
+    async function triggerAddMovie(id, type) {
+      const full = await fetchMovieDetails(id, type);
+      const formatted = formatTmdbItem(full, type);
+      formatted.format = getSelectedFormat();
+      formatted.addedAt = new Date().toISOString();
+
+      const exists = localCollection.some(m => m.title.toLowerCase() === formatted.title.toLowerCase() && m.format === formatted.format);
+      if (exists) return alert("Ce titre est déjà présent dans votre collection dans ce format.");
+
+      await db.collection("movies").add(formatted);
+      alert("Ajouté à la collection !");
     }
 
-    function triggerAddMovie(idx, isWishlist) {
-      let movie = window[`searchResult_${idx}`];
-      addMovieToCollection(movie, '', isWishlist);
-    }
-
-    async function addMovieToCollection(movie, label = '', isWishlist = false) {
-      let finalFormat = isWishlist ? 'À Acheter' : getSelectedFormat();
-      let movieToSave = { ...movie, format: finalFormat, isWishlist: isWishlist };
-
-      let exists = localCollection.some(item => item.title.toLowerCase() === movieToSave.title.toLowerCase() && item.format === movieToSave.format);
-      if (exists) alert(`⚠️ DOUBLON : "${movieToSave.title}" est déjà présent.`);
-      else {
-        await db.collection("movies").add(movieToSave);
-        alert(`✅ Ajouté : "${movieToSave.title}"`);
-      }
+    // Affichage Collection
+    function populateGenreDropdown() {
+      const select = document.getElementById('filter-genre');
+      const genres = new Set();
+      localCollection.forEach(m => (m.genres || []).forEach(g => genres.add(g)));
+      
+      select.innerHTML = '<option value="">Tous les genres</option>';
+      genres.forEach(g => {
+        select.innerHTML += `<option value="${g}">${g}</option>`;
+      });
     }
 
     function renderCollection() {
-      let filterText = document.getElementById('collection-filter-input').value.toLowerCase().trim();
-      let collectionOnly = localCollection.filter(m => !m.isWishlist);
-      let filtered = collectionOnly.filter(m => m.title && m.title.toLowerCase().includes(filterText));
+      const query = document.getElementById('search-collection').value.toLowerCase();
+      const genre = document.getElementById('filter-genre').value;
+      const order = document.getElementById('sort-order').value;
 
-      document.getElementById('collection-count').innerText = `Ma Collection Cloud (${filtered.length})`;
-      let grid = document.getElementById('collection-grid');
+      let filtered = localCollection.filter(m => {
+        const matchesQuery = m.title.toLowerCase().includes(query) ||
+                             (m.cast && m.cast.some(a => a.toLowerCase().includes(query))) ||
+                             (m.directors && m.directors.some(d => d.toLowerCase().includes(query)));
+        const matchesGenre = genre === "" || (m.genres && m.genres.includes(genre));
+        return matchesQuery && matchesGenre;
+      });
+
+      filtered.sort((a, b) => {
+        return order === 'az' ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title);
+      });
+
+      const grid = document.getElementById('collection-grid');
       grid.innerHTML = '';
 
-      filtered.forEach((movie) => {
-        let card = document.createElement('div');
+      filtered.forEach(m => {
+        const card = document.createElement('div');
         card.className = 'card';
+        card.onclick = () => openModalObject(m);
         card.innerHTML = `
-          <img src="${movie.poster || 'https://via.placeholder.com/150'}" onclick="openModalObject(localCollection.find(m => m.docId === '${movie.docId}'))">
-          <div class="card-info" onclick="openModalObject(localCollection.find(m => m.docId === '${movie.docId}'))">
-            <div class="card-title">${movie.title}</div>
+          <span class="badge">${m.format || 'DVD'}</span>
+          <img src="${m.poster || 'https://via.placeholder.com/150x225?text=No+Cover'}" alt="${m.title}">
+          <div class="card-info">
+            <div class="card-title">${m.title}</div>
+            <div class="card-meta">${m.year || ''}</div>
           </div>
         `;
         grid.appendChild(card);
       });
+    }
+
+    // Modal
+    function openModalObject(m) {
+      const body = document.getElementById('modal-body');
+      body.innerHTML = `
+        <h2 style="margin-top:0;">${m.title} (${m.year})</h2>
+        <p><strong>Format :</strong> ${m.format || 'DVD'}</p>
+        <p><strong>Genres :</strong> ${(m.genres || []).join(', ')}</p>
+        <p><strong>Réalisation :</strong> ${(m.directors || []).join(', ')}</p>
+        <p><strong>Acteurs :</strong> ${(m.cast || []).join(', ')}</p>
+        <p><strong>Disponible sur :</strong> ${(m.providers || []).join(', ') || 'Aucune plateforme'}</p>
+        <p style="font-size:0.85rem; color:#ccc;">${m.overview}</p>
+        <button class="action-btn" style="background:#c0392b;" onclick="deleteMovie('${m.docId}')">Supprimer de la collection</button>
+      `;
+      document.getElementById('detail-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('detail-modal').style.display = 'none';
+    }
+
+    async function deleteMovie(docId) {
+      if (confirm("Supprimer ce titre ?")) {
+        await db.collection("movies").doc(docId).delete();
+        closeModal();
+      }
+    }
+
+    // Séries Diffusions & Envies
+    async function loadAiringTodayTV() {
+      if (!tmdbApiKey) return;
+      const res = await fetch(`https://api.themoviedb.org/3/tv/airing_today?api_key=${tmdbApiKey}&language=fr-FR`);
+      const data = await res.json();
+      
+      const grid = document.getElementById('airing-grid');
+      grid.innerHTML = '';
+
+      data.results.forEach(tv => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <img src="${tv.poster_path ? 'https://image.tmdb.org/t/p/w500' + tv.poster_path : 'https://via.placeholder.com/150x225'}" alt="${tv.name}">
+          <div class="card-info">
+            <div class="card-title">${tv.name}</div>
+            <button class="action-btn" style="margin-top:5px; font-size:0.7rem;" onclick="toggleFavoriteTV(${tv.id})">
+              ${localFavorites.includes(tv.id) ? '★ Favori' : '☆ Suivre'}
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function toggleFavoriteTV(tvId) {
+      const docRef = db.collection("favorites").doc(tvId.toString());
+      if (localFavorites.includes(tvId)) {
+        await docRef.delete();
+      } else {
+        await docRef.set({ id: tvId });
+      }
+      loadAiringTodayTV();
     }
 
     function renderWishlist() {
-      let wishlistOnly = localCollection.filter(m => m.isWishlist);
-      document.getElementById('wishlist-count').innerText = `Ma Liste d'Envies (${wishlistOnly.length})`;
-      let grid = document.getElementById('wishlist-grid');
-      grid.innerHTML = '';
-
-      wishlistOnly.forEach((movie) => {
-        let card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <img src="${movie.poster || 'https://via.placeholder.com/150'}" onclick="openModalObject(localCollection.find(m => m.docId === '${movie.docId}'))">
-          <div class="card-info" onclick="openModalObject(localCollection.find(m => m.docId === '${movie.docId}'))">
-            <div class="card-title">${movie.title}</div>
-          </div>
-        `;
-        grid.appendChild(card);
-      });
+      const grid = document.getElementById('wishlist-grid');
+      grid.innerHTML = '<p style="color:#aaa;">Vos favoris et titres à acquérir s\'affichent ici.</p>';
     }
 
-    async function saveApiKey() {
-      let key = document.getElementById('api-key-input').value.trim();
-      if (key) {
-        await db.collection("settings").doc("tmdb").set({ key: key });
-        alert('Clé enregistrée !');
-        loadAiringTodayTV();
+    // EXPORTER LA COLLECTION (Sauvegarde JSON)
+    function exportCollection() {
+      if (localCollection.length === 0) {
+        alert("Votre collection est vide.");
+        return;
       }
+
+      const cleanData = localCollection.map(({ docId, ...rest }) => rest);
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cleanData, null, 2));
+      
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `sauvegarde_dvdtheque_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // IMPORTER UNE SAUVEGARDE (Import JSON vers Firestore)
+    function importCollection(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const items = JSON.parse(e.target.result);
+          if (!Array.isArray(items)) {
+            alert("Format de fichier invalide.");
+            return;
+          }
+
+          if (confirm(`Voulez-vous importer ${items.length} éléments dans votre base Cloud ?`)) {
+            const batch = db.batch();
+            let addedCount = 0;
+
+            items.forEach((item) => {
+              const exists = localCollection.some(m => m.title.toLowerCase() === item.title.toLowerCase() && m.format === item.format);
+              if (!exists) {
+                const newDocRef = db.collection("movies").doc();
+                batch.set(newDocRef, item);
+                addedCount++;
+              }
+            });
+
+            await batch.commit();
+            alert(`✅ Restauration terminée : ${addedCount} nouveaux titres ajoutés.`);
+            event.target.value = '';
+          }
+        } catch (err) {
+          alert("Erreur lors de la lecture du fichier JSON.");
+        }
+      };
+      reader.readAsText(file);
     }
   </script>
 </body>
