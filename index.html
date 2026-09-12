@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DVDthèque - Choix des Jaquettes & TMDB</title>
+  <title>DVDthèque - Fiches, Filmographies & Suggestions</title>
   <style>
     :root {
       --bg-color: #121212;
@@ -145,7 +145,6 @@
     }
     .selector-box label { font-size: 0.75rem; color: #aaa; display: block; margin-bottom: 4px; }
 
-    /* Affiches alternatives */
     .poster-gallery {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -163,17 +162,53 @@
       cursor: pointer;
       border: 2px solid transparent;
     }
-    .poster-gallery img.selected {
-      border-color: var(--accent);
+
+    .meta-item {
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+    .meta-item strong {
+      color: var(--accent);
+    }
+    .clickable-person {
+      color: #38bdf8;
+      text-decoration: underline;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+    .clickable-person:hover {
+      color: #7dd3fc;
+    }
+
+    .btn-external {
+      background: #0284c7;
+      color: white;
+      text-decoration: none;
+      display: block;
+      text-align: center;
+      padding: 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+
+    .artist-section-title {
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #f59e0b;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
+      margin-top: 15px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
 <body>
 
-  <header>🎬 DVDthèque - Saisie & Visuels 4K/UHD</header>
+  <header>🎬 DVDthèque - Fiches & Filmographies</header>
 
   <div class="container">
-    <!-- OPTION : FORMAT & TYPE DE RECHERCHE -->
     <div class="selector-box">
       <div>
         <label>Type d'élément :</label>
@@ -199,7 +234,7 @@
       </button>
 
       <div style="display:flex; gap:5px;">
-        <input type="text" id="search-input" placeholder="Ex: Premier Contact, Harry Potter..." onkeyup="if(event.key==='Enter') searchMovie()">
+        <input type="text" id="search-input" placeholder="Ex: Premier Contact, Dune, Inception..." onkeyup="if(event.key==='Enter') searchMovie()">
         <button onclick="searchMovie()" style="background:var(--accent); color:white; border:none; border-radius:6px; padding:10px 15px; font-weight:bold;">🔍</button>
       </div>
 
@@ -217,7 +252,7 @@
     <!-- TAB API -->
     <div id="tab-api" class="tab-content">
       <h3>Configuration API TMDB</h3>
-      <p style="font-size: 0.85rem; color: #aaa;">Obligatoire pour charger les affiches et fiches techniques.</p>
+      <p style="font-size: 0.85rem; color: #aaa;">Obligatoire pour charger automatiquement les données techniques et casting.</p>
       <input type="text" id="api-key-input" placeholder="Collez votre clé API TMDB">
       <button class="action-btn" onclick="saveApiKey()">Enregistrer la clé</button>
     </div>
@@ -228,7 +263,7 @@
     <div class="modal-content">
       <span class="close-btn" onclick="closePosterModal()">&times;</span>
       <h3 style="margin-top:0;">Choisir une affiche pour ce film :</h3>
-      <p style="font-size:0.8rem; color:#aaa;">Cliquez sur l'image qui correspond le mieux à votre boîtier (Blu-ray / 4K / Collector) :</p>
+      <p style="font-size:0.8rem; color:#aaa;">Cliquez sur l'image qui correspond à votre boîtier :</p>
       <div id="poster-gallery" class="poster-gallery"></div>
     </div>
   </div>
@@ -239,11 +274,33 @@
       <span class="close-btn" onclick="closeModal()">&times;</span>
       <img id="modal-poster" src="" alt="Affiche">
       <h2 id="modal-title" style="margin-top:0;"></h2>
-      <p><strong>Format :</strong> <span id="modal-format" style="font-weight:bold;"></span></p>
-      <p><strong>Date de sortie :</strong> <span id="modal-date"></span></p>
-      <p><strong>Note TMDB :</strong> ⭐ <span id="modal-rating"></span>/10</p>
-      <p><strong>Synopsis :</strong></p>
+      
+      <div class="meta-item"><strong>Format :</strong> <span id="modal-format"></span></div>
+      <div class="meta-item"><strong>Genre :</strong> <span id="modal-genres"></span></div>
+      <div class="meta-item"><strong>Durée :</strong> <span id="modal-runtime"></span></div>
+      <div class="meta-item"><strong>Réalisateur :</strong> <span id="modal-director"></span></div>
+      <div class="meta-item"><strong>Têtes d'affiche :</strong> <span id="modal-cast"></span></div>
+      <div class="meta-item"><strong>Date de sortie :</strong> <span id="modal-date"></span></div>
+      <div class="meta-item"><strong>Note :</strong> ⭐ <span id="modal-rating"></span>/10</div>
+      
+      <p style="margin-top:15px;"><strong>Synopsis :</strong></p>
       <p id="modal-overview" style="color: #ccc; font-size: 0.9rem; line-height: 1.4;"></p>
+
+      <a id="modal-tmdb-link" href="#" target="_blank" class="btn-external">🔗 Fiche Complète sur TMDB Web</a>
+    </div>
+  </div>
+
+  <!-- MODAL / RECHERCHE ARTISTE (ACTEUR OU RÉALISATEUR) -->
+  <div id="artist-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeArtistModal()">&times;</span>
+      <h2 id="artist-name" style="margin-top:0; color: #38bdf8;"></h2>
+      
+      <div class="artist-section-title">📚 Dans votre collection :</div>
+      <div id="artist-owned-list" class="grid"></div>
+
+      <div class="artist-section-title">💡 Autres films célèbres (Propositions) :</div>
+      <div id="artist-suggested-list" class="grid"></div>
     </div>
   </div>
 
@@ -256,7 +313,7 @@
 
   <script>
     let recognition = null;
-    let currentSearchingMovie = null;
+    let genreMap = {};
 
     function getCollection() {
       return JSON.parse(localStorage.getItem('dvd_collection') || '[]');
@@ -281,7 +338,18 @@
       if (tabName === 'collection') renderCollection();
     }
 
-    // Dictée Vocale
+    async function loadGenres() {
+      let apiKey = localStorage.getItem('tmdb_api_key');
+      if (!apiKey) return;
+      try {
+        let res = await fetch(`https://api.themoviedb.org/3/genre/movie/list?api_key=${apiKey}&language=fr-FR`);
+        let data = await res.json();
+        if (data.genres) {
+          data.genres.forEach(g => { genreMap[g.id] = g.name; });
+        }
+      } catch(e){}
+    }
+
     function toggleVoiceInput() {
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
         alert("La dictée vocale n'est pas supportée par votre navigateur.");
@@ -337,20 +405,143 @@
       recognition = null;
     }
 
-    function formatTmdbMovie(m, isCollectionType) {
+    function formatRuntime(minutes) {
+      if (!minutes) return 'Non communiquée';
+      let h = Math.floor(minutes / 60);
+      let m = minutes % 60;
+      return `${h}h ${m}m`;
+    }
+
+    async function fetchMovieDetails(id, isCollection) {
+      let apiKey = localStorage.getItem('tmdb_api_key');
+      let type = isCollection ? 'collection' : 'movie';
+      let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${apiKey}&language=fr-FR&append_to_response=credits`);
+      return await res.json();
+    }
+
+    async function formatTmdbMovie(m, isCollectionType) {
       let titleName = isCollectionType ? (m.name || m.title) : m.title;
+      let details = await fetchMovieDetails(m.id, isCollectionType);
+
+      let genres = details.genres ? details.genres.map(g => g.name).join(', ') : 'N/A';
+      if (!genres && m.genre_ids) {
+        genres = m.genre_ids.map(id => genreMap[id]).filter(Boolean).join(', ');
+      }
+
+      let director = { name: 'Inconnu', id: null };
+      let cast = [];
+
+      if (details.credits) {
+        let dirObj = details.credits.crew ? details.credits.crew.find(c => c.job === 'Director') : null;
+        if (dirObj) director = { name: dirObj.name, id: dirObj.id };
+
+        if (details.credits.cast && details.credits.cast.length > 0) {
+          cast = details.credits.cast.slice(0, 4).map(c => ({ name: c.name, id: c.id }));
+        }
+      }
+
       return {
         id: m.id,
         title: titleName,
         poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
-        overview: m.overview || 'Aucun résumé disponible.',
-        release_date: m.release_date || 'Inconnue',
+        overview: details.overview || m.overview || 'Aucun résumé disponible.',
+        release_date: details.release_date || m.release_date || 'Inconnue',
         vote_average: m.vote_average ? m.vote_average.toFixed(1) : 'N/A',
+        runtime: formatRuntime(details.runtime),
+        genres: genres || 'Général',
+        director: director,
+        cast: cast,
+        tmdb_url: isCollectionType ? `https://www.themoviedb.org/collection/${m.id}` : `https://www.themoviedb.org/movie/${m.id}`,
         format: getSelectedFormat() + (isCollectionType ? ' (Coffret)' : '')
       };
     }
 
-    // Permet d'ouvrir la galerie pour choisir une autre jaquette (4K, Steelbook, etc.)
+    // INSPECTER UN ARTISTE (ACTEUR / RÉALISATEUR)
+    async function inspectPerson(personId, personName) {
+      let apiKey = localStorage.getItem('tmdb_api_key');
+      if (!apiKey) return;
+
+      document.getElementById('artist-name').innerText = personName;
+      let collection = getCollection();
+
+      // 1. Chercher dans votre collection existante
+      let ownedList = document.getElementById('artist-owned-list');
+      ownedList.innerHTML = '';
+      
+      let matchedMovies = collection.filter(m => {
+        let inDir = m.director && m.director.name === personName;
+        let inCast = m.cast && m.cast.some(c => c.name === personName);
+        return inDir || inCast;
+      });
+
+      if (matchedMovies.length > 0) {
+        matchedMovies.forEach(m => {
+          let card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+            <img src="${m.poster || 'https://via.placeholder.com/150'}" alt="${m.title}">
+            <div class="card-info">
+              <div class="card-title">${m.title}</div>
+              <div style="font-size:0.75rem; color:#aaa;">${m.format}</div>
+            </div>
+          `;
+          ownedList.appendChild(card);
+        });
+      } else {
+        ownedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Aucun film trouvé dans votre collection.</p>';
+      }
+
+      // 2. Chercher les propositions/suggestions sur TMDB
+      let suggestedList = document.getElementById('artist-suggested-list');
+      suggestedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Recherche de suggestions...</p>';
+
+      try {
+        let res = await fetch(`https://api.themoviedb.org/3/person/${personId}/movie_credits?api_key=${apiKey}&language=fr-FR`);
+        let data = await res.json();
+        
+        let allCredits = [];
+        if (data.cast) allCredits = allCredits.concat(data.cast);
+        if (data.crew) allCredits = allCredits.concat(data.crew.filter(c => c.job === 'Director'));
+
+        // Filtrer les films déjà possédés et trier par popularité
+        let ownedIds = collection.map(c => c.id);
+        let suggestions = allCredits
+          .filter(m => !ownedIds.includes(m.id) && m.poster_path)
+          .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+          .slice(0, 6);
+
+        suggestedList.innerHTML = '';
+        if (suggestions.length > 0) {
+          for (let idx = 0; idx < suggestions.length; idx++) {
+            let m = suggestions[idx];
+            let formatted = await formatTmdbMovie(m, false);
+            window[`artistSuggest_${idx}`] = formatted;
+
+            let card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+              <img src="${formatted.poster}" alt="${formatted.title}">
+              <div class="card-info">
+                <div class="card-title">${formatted.title}</div>
+              </div>
+              <button class="action-btn" style="margin:5px; padding:6px; font-size:0.75rem;" onclick='addMovieToCollection(window["artistSuggest_${idx}"])'>+ Ajouter</button>
+            `;
+            suggestedList.appendChild(card);
+          }
+        } else {
+          suggestedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Aucune suggestion disponible.</p>';
+        }
+      } catch (e) {
+        suggestedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Erreur de chargement des suggestions.</p>';
+      }
+
+      document.getElementById('artist-modal').style.display = 'block';
+    }
+
+    function closeArtistModal() {
+      document.getElementById('artist-modal').style.display = 'none';
+    }
+
     async function openPosterGallery(movieId, cardIndex) {
       let apiKey = localStorage.getItem('tmdb_api_key');
       let searchType = document.getElementById('search-type').value;
@@ -376,7 +567,7 @@
         });
         document.getElementById('poster-modal').style.display = 'block';
       } else {
-        alert("Aucune affiche alternative trouvée pour ce titre.");
+        alert("Aucune affiche alternative disponible.");
       }
     }
 
@@ -429,9 +620,39 @@
       document.getElementById('modal-poster').src = movie.poster || 'https://via.placeholder.com/300x450?text=Pas+d+image';
       document.getElementById('modal-title').innerText = movie.title;
       document.getElementById('modal-format').innerText = movie.format;
+      document.getElementById('modal-genres').innerText = movie.genres || 'S.F., Action...';
+      document.getElementById('modal-runtime').innerText = movie.runtime || 'Non renseignée';
+      
+      // Réalisateur cliquable
+      let dirEl = document.getElementById('modal-director');
+      if (movie.director && movie.director.id) {
+        dirEl.innerHTML = `<span class="clickable-person" onclick="inspectPerson(${movie.director.id}, '${movie.director.name.replace(/'/g, "\\'")}')">${movie.director.name}</span>`;
+      } else {
+        dirEl.innerText = movie.director ? movie.director.name : 'Inconnu';
+      }
+
+      // Casting cliquable
+      let castEl = document.getElementById('modal-cast');
+      if (movie.cast && Array.isArray(movie.cast) && movie.cast.length > 0) {
+        castEl.innerHTML = movie.cast.map(c => 
+          `<span class="clickable-person" onclick="inspectPerson(${c.id}, '${c.name.replace(/'/g, "\\'")}')">${c.name}</span>`
+        ).join(', ');
+      } else {
+        castEl.innerText = 'Non renseigné';
+      }
+
       document.getElementById('modal-date').innerText = movie.release_date;
       document.getElementById('modal-rating').innerText = movie.vote_average;
       document.getElementById('modal-overview').innerText = movie.overview;
+      
+      let linkEl = document.getElementById('modal-tmdb-link');
+      if (movie.tmdb_url) {
+        linkEl.href = movie.tmdb_url;
+        linkEl.style.display = 'block';
+      } else {
+        linkEl.style.display = 'none';
+      }
+
       document.getElementById('movie-modal').style.display = 'block';
     }
 
@@ -448,6 +669,7 @@
     function saveApiKey() {
       let key = document.getElementById('api-key-input').value.trim();
       localStorage.setItem('tmdb_api_key', key);
+      loadGenres();
       alert('Clé API enregistrée avec succès !');
     }
 
@@ -463,11 +685,13 @@
       let res = await fetch(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
       let data = await res.json();
       let container = document.getElementById('search-results');
-      container.innerHTML = '';
+      container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des données...</p>';
 
       if (data.results && data.results.length > 0) {
-        data.results.slice(0, 6).forEach((m, idx) => {
-          let movie = formatTmdbMovie(m, searchType === 'collection');
+        container.innerHTML = '';
+        for (let idx = 0; idx < Math.min(data.results.length, 6); idx++) {
+          let m = data.results[idx];
+          let movie = await formatTmdbMovie(m, searchType === 'collection');
           window[`searchResultMovie_${idx}`] = movie;
 
           let card = document.createElement('div');
@@ -481,13 +705,14 @@
             <button class="action-btn" style="margin:10px;" onclick='addMovieToCollection(window["searchResultMovie_${idx}"])'>+ Ajouter (${movie.format})</button>
           `;
           container.appendChild(card);
-        });
+        }
       } else {
         container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucun résultat trouvé.</p>';
       }
     }
 
     document.getElementById('api-key-input').value = localStorage.getItem('tmdb_api_key') || '';
+    loadGenres();
     renderCollection();
   </script>
 </body>
