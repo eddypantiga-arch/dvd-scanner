@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DVDthèque Cloud</title>
   
-  <!-- SDK Firebase -->
+  <!-- SDK Firebase 9 (Version Compatibilité pour HTML classique) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
@@ -133,20 +133,12 @@
     button.action-btn { background: var(--accent); color: white; font-weight: bold; font-size: 1rem; cursor: pointer; }
 
     .btn-fav {
-      background: #333;
-      color: #aaa;
-      border: 1px solid #555;
-      border-radius: 4px;
-      padding: 5px;
-      font-size: 0.75rem;
-      font-weight: bold;
-      cursor: pointer;
-      margin: 5px 10px 0 10px;
+      background: #333; color: #aaa; border: 1px solid #555;
+      border-radius: 4px; padding: 5px; font-size: 0.75rem; font-weight: bold;
+      cursor: pointer; margin: 5px 10px 0 10px;
     }
     .btn-fav.active {
-      background: var(--imdb-yellow);
-      color: #000;
-      border: 1px solid var(--imdb-yellow);
+      background: var(--imdb-yellow); color: #000; border: 1px solid var(--imdb-yellow);
     }
 
     .btn-mic {
@@ -203,10 +195,7 @@
 
     .ep-tag {
       background-color: rgba(56, 189, 248, 0.15);
-      border-left: 3px solid #38bdf8;
-      padding: 6px;
-      margin-top: 8px;
-      border-radius: 0 4px 4px 0;
+      border-left: 3px solid #38bdf8; padding: 6px; margin-top: 8px; border-radius: 0 4px 4px 0;
     }
     .ep-num { font-weight: bold; color: #38bdf8; font-size: 0.75rem; display: block; }
     .ep-title-text { color: #ddd; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
@@ -249,14 +238,13 @@
       <p id="search-status" style="text-align:center; color:#ffca28; font-weight:bold; margin-top:10px;"></p>
       <div id="search-results" class="grid" style="margin-top:15px;"></div>
 
-      <!-- BLOC SORTIES SÉRIES J+7 -->
       <div class="section-title">📺 Épisodes diffusés actuellement (J+7)</div>
       <div id="airing-today-grid" class="grid">
         <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des séries...</p>
       </div>
     </div>
 
-    <!-- TAB COLLECTION AVEC FILTRES ET TRI -->
+    <!-- TAB COLLECTION -->
     <div id="tab-collection" class="tab-content">
       <h3 id="collection-count">Ma Collection Cloud</h3>
       
@@ -283,7 +271,7 @@
       <div id="collection-grid" class="grid"></div>
     </div>
 
-    <!-- TAB LISTE D'ENVIES -->
+    <!-- TAB ENVIES -->
     <div id="tab-wishlist" class="tab-content">
       <h3 id="wishlist-count">Ma Liste d'Envies</h3>
       <p style="font-size: 0.85rem; color: #aaa;">Films ou séries que vous aimeriez acquérir.</p>
@@ -328,7 +316,7 @@
       <a id="modal-imdb-link" href="#" target="_blank" class="btn-imdb" style="display:none;">🎬 Voir sur IMDb</a>
       <a id="modal-tmdb-link" href="#" target="_blank" class="btn-external">🔗 Voir sur TMDB Web</a>
       
-      <button id="modal-delete-btn" class="btn-delete" style="width:100%; margin: 15px 0 0 0;" onclick="">🗑️ Supprimer ce titre</button>
+      <button id="modal-delete-btn" class="btn-delete" style="width:100%; margin: 15px 0 0 0;">🗑️ Supprimer ce titre</button>
     </div>
   </div>
 
@@ -354,6 +342,7 @@
   </nav>
 
   <script>
+    // Configuration Firebase globale
     const firebaseConfig = {
       apiKey: "AIzaSyABV3JlLUv2gBksRgwSdOBo9MKWPE1s2ZU",
       authDomain: "dvdtheque-6a431.firebaseapp.com",
@@ -364,6 +353,7 @@
       measurementId: "G-C75SM4T13P"
     };
 
+    // Initialisation Firebase pour navigateur classique
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
@@ -372,14 +362,34 @@
     let favoriteTvIds = [];
     let tmdbApiKey = "";
 
+    // Synchro dynamique de la collection
     db.collection("movies").onSnapshot((snapshot) => {
       localCollection = [];
       snapshot.forEach((doc) => {
-        localCollection.push({ docId: doc.id, ...doc.data() });
+        const data = doc.data();
+        localCollection.push({
+          docId: doc.id,
+          title: data.title || data.nom || data.titre || "Titre inconnu",
+          poster: data.poster || data.image || data.poster_path || '',
+          format: data.format || "DVD",
+          genres: data.genres || 'Général',
+          runtime: data.runtime || 'N/A',
+          director: data.director || { name: data.realisateur || 'Inconnu' },
+          cast: data.cast || [],
+          release_date: data.release_date || data.annee || '',
+          vote_average: data.vote_average || 'N/A',
+          overview: data.overview || data.synopsis || 'Aucun résumé disponible.',
+          isWishlist: data.isWishlist || false,
+          tmdb_url: data.tmdb_url || null,
+          imdb_url: data.imdb_url || null,
+          isTV: data.isTV || false
+        });
       });
       populateGenreDropdown();
       renderCollection();
       renderWishlist();
+    }, (error) => {
+      console.error("Erreur d'accès à la base :", error);
     });
 
     db.collection("settings").doc("favorites").onSnapshot((doc) => {
@@ -505,7 +515,6 @@
       let imdbId = details.external_ids ? details.external_ids.imdb_id : (details.imdb_id || null);
       let runtimeStr = isTV ? `${details.number_of_seasons || 1} Saison(s) - ${details.number_of_episodes || 0} Ép.` : formatRuntime(details.runtime);
 
-      // Extraction de l'épisode
       let epInfo = null;
       if (isTV) {
         let ep = details.next_episode_to_air || details.last_episode_to_air;
@@ -569,11 +578,9 @@
             tvList.push(movieItem);
           }
 
-          // TRI : Favoris d'abord, puis par date de diffusion récente
           tvList.sort((a, b) => {
             let isFavA = favoriteTvIds.includes(a.id);
             let isFavB = favoriteTvIds.includes(b.id);
-            
             if (isFavA && !isFavB) return -1;
             if (!isFavA && isFavB) return 1;
 
@@ -622,7 +629,6 @@
           grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucune série trouvée.</p>';
         }
       } catch (e) {
-        console.error(e);
         grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur de chargement.</p>';
       }
     }
