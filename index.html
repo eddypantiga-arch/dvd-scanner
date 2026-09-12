@@ -369,6 +369,7 @@
         const data = doc.data();
         localCollection.push({
           docId: doc.id,
+          id: data.id || null,
           title: data.title || data.nom || data.titre || "Titre inconnu",
           poster: data.poster || data.image || data.poster_path || '',
           format: data.format || "DVD",
@@ -645,6 +646,9 @@
       }
 
       let movieToSave = { ...movie, format: finalFormat, isWishlist: isWishlist };
+      
+      // On retire les objets complexes temporaires d'affichage réseau
+      delete movieToSave.episodeInfo;
 
       let exists = localCollection.some(item => 
         item.title.toLowerCase() === movieToSave.title.toLowerCase() && item.format === movieToSave.format
@@ -653,8 +657,12 @@
       if (exists) {
         alert(`⚠️ DOUBLON : "${movieToSave.title}" est déjà présent.`);
       } else {
-        await db.collection("movies").add(movieToSave);
-        alert(`✅ Ajouté avec succès : "${movieToSave.title}"`);
+        try {
+          await db.collection("movies").add(movieToSave);
+          alert(`✅ Ajouté avec succès : "${movieToSave.title}"`);
+        } catch(err) {
+          alert("❌ Erreur Firestore : " + err.message);
+        }
       }
     }
 
