@@ -328,7 +328,7 @@
       <a id="modal-imdb-link" href="#" target="_blank" class="btn-imdb" style="display:none;">🎬 Voir sur IMDb</a>
       <a id="modal-tmdb-link" href="#" target="_blank" class="btn-external">🔗 Voir sur TMDB Web</a>
       
-      <button id="modal-delete-btn" class="btn-delete" style="width:100%; margin: 15px 0 0 0;" onclick="">🗑️ Supprimer ce titre</button>
+      <button id="modal-delete-btn" class="btn-delete" style="width:100%; margin: 15px 0 0 0;">🗑️ Supprimer ce titre</button>
     </div>
   </div>
 
@@ -476,6 +476,7 @@
     async function fetchMovieDetails(id, type) {
       try {
         let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&language=fr-FR&append_to_response=credits,external_ids`);
+        if (!res.ok) return {};
         return await res.json();
       } catch(e) { return {}; }
     }
@@ -505,7 +506,6 @@
       let imdbId = details.external_ids ? details.external_ids.imdb_id : (details.imdb_id || null);
       let runtimeStr = isTV ? `${details.number_of_seasons || 1} Saison(s) - ${details.number_of_episodes || 0} Ép.` : formatRuntime(details.runtime);
 
-      // Extraction de l'épisode
       let epInfo = null;
       if (isTV) {
         let ep = details.next_episode_to_air || details.last_episode_to_air;
@@ -523,7 +523,7 @@
 
       return {
         id: m.id,
-        title: titleName,
+        title: titleName || 'Titre inconnu',
         poster: (details.poster_path || m.poster_path) ? `https://image.tmdb.org/t/p/w500${details.poster_path || m.poster_path}` : '',
         overview: details.overview || m.overview || 'Aucun résumé disponible.',
         release_date: details.first_air_date || details.release_date || m.release_date || 'Inconnue',
@@ -556,6 +556,7 @@
       
       try {
         let res = await fetch(`https://api.themoviedb.org/3/tv/on_the_air?api_key=${tmdbApiKey}&language=fr-FR&page=1`);
+        if (!res.ok) throw new Error("Erreur de réponse TMDB");
         let data = await res.json();
         
         if (data.results && data.results.length > 0) {
@@ -569,7 +570,6 @@
             tvList.push(movieItem);
           }
 
-          // TRI : Favoris d'abord, puis par date de diffusion récente
           tvList.sort((a, b) => {
             let isFavA = favoriteTvIds.includes(a.id);
             let isFavB = favoriteTvIds.includes(b.id);
@@ -791,17 +791,30 @@
       document.getElementById('modal-runtime').innerText = movie.runtime || 'N/A';
 
       let dirEl = document.getElementById('modal-director');
+      dirEl.innerHTML = '';
       if (movie.director && movie.director.id) {
-        dirEl.innerHTML = `<span class="clickable-person" onclick="inspectPerson(${movie.director.id}, '${movie.director.name.replace(/'/g, "\\'")}')">${movie.director.name}</span>`;
+        let span = document.createElement('span');
+        span.className = 'clickable-person';
+        span.innerText = movie.director.name;
+        span.onclick = () => inspectPerson(movie.director.id, movie.director.name);
+        dirEl.appendChild(span);
       } else {
         dirEl.innerText = movie.director ? movie.director.name : 'Inconnu';
       }
 
       let castEl = document.getElementById('modal-cast');
+      castEl.innerHTML = '';
       if (movie.cast && Array.isArray(movie.cast) && movie.cast.length > 0) {
-        castEl.innerHTML = movie.cast.map(c => 
-          `<span class="clickable-person" onclick="inspectPerson(${c.id}, '${c.name.replace(/'/g, "\\'")}')">${c.name}</span>`
-        ).join(', ');
+        movie.cast.forEach((c, idx) => {
+          let span = document.createElement('span');
+          span.className = 'clickable-person';
+          span.innerText = c.name;
+          span.onclick = () => inspectPerson(c.id, c.name);
+          castEl.appendChild(span);
+          if (idx < movie.cast.length - 1) {
+            castEl.appendChild(document.createTextNode(', '));
+          }
+        });
       } else {
         castEl.innerText = 'Non renseigné';
       }
@@ -843,42 +856,49 @@
       if (!tmdbApiKey) return alert("Veuillez saisir votre clé API TMDB dans l'onglet Configuration.");
       if (!query) return;
 
-      let res = await fetch(`https://api.themoviedb.org/3/search/${searchType}?api_key=${tmdbApiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
-      let data = await res.json();
       let container = document.getElementById('search-results');
       container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Recherche en cours...</p>';
 
-      if (data.results && data.results.length > 0) {
-        container.innerHTML = '';
-        for (let idx = 0; idx < Math.min(data.results.length, 6); idx++) {
-          let m = data.results[idx];
-          let movie = await formatTmdbItem(m, searchType);
-          window[`searchResult_${idx}`] = movie;
+      try {
+        let res = await fetch(`https://api.themoviedb.org/3/search/${searchType}?api_key=${tmdbApiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
+        if (!res.ok) throw new Error("Erreur de recherche");
+        let data = await res.json();
 
-          let seasonSelectorHTML = '';
-          if (movie.isTV) {
-            seasonSelectorHTML = `<div style="padding:0 10px;"><select id="season-select-${idx}" style="font-size:0.8rem; padding:6px; margin-top:5px;">`;
-            seasonSelectorHTML += `<option value="Intégrale (Saisons 1 à ${movie.seasonsCount})">📦 Intégrale (Saisons 1 à ${movie.seasonsCount})</option>`;
-            for (let s = 1; s <= movie.seasonsCount; s++) {
-              seasonSelectorHTML += `<option value="Saison ${s}">📺 Saison ${s}</option>`;
+        if (data.results && data.results.length > 0) {
+          container.innerHTML = '';
+          let maxItems = Math.min(data.results.length, 6);
+          for (let idx = 0; idx < maxItems; idx++) {
+            let m = data.results[idx];
+            let movie = await formatTmdbItem(m, searchType);
+            window[`searchResult_${idx}`] = movie;
+
+            let seasonSelectorHTML = '';
+            if (movie.isTV) {
+              seasonSelectorHTML = `<div style="padding:0 10px;"><select id="season-select-${idx}" style="font-size:0.8rem; padding:6px; margin-top:5px;">`;
+              seasonSelectorHTML += `<option value="Intégrale (Saisons 1 à ${movie.seasonsCount})">📦 Intégrale (Saisons 1 à ${movie.seasonsCount})</option>`;
+              for (let s = 1; s <= movie.seasonsCount; s++) {
+                seasonSelectorHTML += `<option value="Saison ${s}">📺 Saison ${s}</option>`;
+              }
+              seasonSelectorHTML += `</select></div>`;
             }
-            seasonSelectorHTML += `</select></div>`;
-          }
 
-          let card = document.createElement('div');
-          card.className = 'card';
-          card.innerHTML = `
-            <img id="img-result-${idx}" src="${movie.poster || 'https://via.placeholder.com/150x220'}" alt="${movie.title}">
-            <div class="card-info"><div class="card-title">${movie.title}</div></div>
-            ${seasonSelectorHTML}
-            <button style="background:#444; color:white; border:none; padding:6px; margin:5px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;" onclick="openPosterGallery(${movie.id}, ${idx})">🔄 Jaquette</button>
-            <button class="action-btn" style="margin:5px 10px;" onclick='triggerAddMovie(${idx}, false)'>+ Collection</button>
-            <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='triggerAddMovie(${idx}, true)'>💡 Liste d'envies</button>
-          `;
-          container.appendChild(card);
+            let card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+              <img id="img-result-${idx}" src="${movie.poster || 'https://via.placeholder.com/150x220'}" alt="${movie.title}">
+              <div class="card-info"><div class="card-title">${movie.title}</div></div>
+              ${seasonSelectorHTML}
+              <button style="background:#444; color:white; border:none; padding:6px; margin:5px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;" onclick="openPosterGallery(${movie.id}, ${idx})">🔄 Jaquette</button>
+              <button class="action-btn" style="margin:5px 10px;" onclick='triggerAddMovie(${idx}, false)'>+ Collection</button>
+              <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='triggerAddMovie(${idx}, true)'>💡 Liste d'envies</button>
+            `;
+            container.appendChild(card);
+          }
+        } else {
+          container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucun résultat.</p>';
         }
-      } else {
-        container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucun résultat.</p>';
+      } catch (e) {
+        container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur lors de la recherche.</p>';
       }
     }
 
@@ -893,27 +913,32 @@
 
     async function openPosterGallery(movieId, cardIndex) {
       let searchType = document.getElementById('search-type').value;
-      let res = await fetch(`https://api.themoviedb.org/3/${searchType}/${movieId}/images?api_key=${tmdbApiKey}&include_image_language=fr,en,null`);
-      let data = await res.json();
+      try {
+        let res = await fetch(`https://api.themoviedb.org/3/${searchType}/${movieId}/images?api_key=${tmdbApiKey}&include_image_language=fr,en,null`);
+        if (!res.ok) throw new Error("Erreur images");
+        let data = await res.json();
 
-      let gallery = document.getElementById('poster-gallery');
-      gallery.innerHTML = '';
+        let gallery = document.getElementById('poster-gallery');
+        gallery.innerHTML = '';
 
-      if (data.posters && data.posters.length > 0) {
-        data.posters.slice(0, 15).forEach(imgData => {
-          let imgUrl = `https://image.tmdb.org/t/p/w500${imgData.file_path}`;
-          let img = document.createElement('img');
-          img.src = imgUrl;
-          img.onclick = function() {
-            document.getElementById(`img-result-${cardIndex}`).src = imgUrl;
-            window[`searchResult_${cardIndex}`].poster = imgUrl;
-            closePosterModal();
-          };
-          gallery.appendChild(img);
-        });
-        document.getElementById('poster-modal').style.display = 'block';
-      } else {
-        alert("Aucune affiche alternative.");
+        if (data.posters && data.posters.length > 0) {
+          data.posters.slice(0, 15).forEach(imgData => {
+            let imgUrl = `https://image.tmdb.org/t/p/w500${imgData.file_path}`;
+            let img = document.createElement('img');
+            img.src = imgUrl;
+            img.onclick = function() {
+              document.getElementById(`img-result-${cardIndex}`).src = imgUrl;
+              window[`searchResult_${cardIndex}`].poster = imgUrl;
+              closePosterModal();
+            };
+            gallery.appendChild(img);
+          });
+          document.getElementById('poster-modal').style.display = 'block';
+        } else {
+          alert("Aucune affiche alternative.");
+        }
+      } catch(e) {
+        alert("Erreur lors de la récupération des affiches.");
       }
     }
 
@@ -949,6 +974,7 @@
 
       try {
         let res = await fetch(`https://api.themoviedb.org/3/person/${personId}/movie_credits?api_key=${tmdbApiKey}&language=fr-FR`);
+        if (!res.ok) throw new Error("Erreur artiste");
         let data = await res.json();
         
         let allCredits = [];
