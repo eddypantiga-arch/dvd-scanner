@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DVDthèque - Sync Cloud</title>
+  <title>DVDthèque Cloud</title>
   
   <!-- SDK Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -65,9 +65,10 @@
       position: absolute;
       top: 8px; right: 8px;
       padding: 4px 8px; border-radius: 4px;
-      font-size: 0.75rem; font-weight: bold; color: #fff;
+      font-size: 0.7rem; font-weight: bold; color: #fff;
       box-shadow: 0 2px 4px rgba(0,0,0,0.6);
       pointer-events: none;
+      text-align: right;
     }
     .format-DVD { background-color: #e67e22; }
     .format-Bluray { background-color: #2980b9; }
@@ -133,6 +134,12 @@
     }
     .selector-box label { font-size: 0.75rem; color: #aaa; display: block; margin-bottom: 4px; }
 
+    .filter-box {
+      background: #1a1a1a; padding: 10px; border-radius: 8px;
+      margin-bottom: 15px; border: 1px solid #333;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
     .poster-gallery {
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
       max-height: 300px; overflow-y: auto; margin-top: 10px; padding: 5px;
@@ -180,12 +187,12 @@
       </div>
     </div>
 
-    <!-- RECHERCHE VOCALE ET TEXTE -->
+    <!-- TAB RECHERCHE -->
     <div id="tab-search" class="tab-content active">
       <button id="mic-btn" class="btn-mic" onclick="toggleVoiceInput()">🎙️ DICTÉE VOCALE (Parler)</button>
 
       <div style="display:flex; gap:5px;">
-        <input type="text" id="search-input" placeholder="Ex: Interstellar, Le Bureau des Légendes..." onkeyup="if(event.key==='Enter') searchMovie()">
+        <input type="text" id="search-input" placeholder="Ex: Interstellar, Breaking Bad..." onkeyup="if(event.key==='Enter') searchMovie()">
         <button onclick="searchMovie()" style="background:var(--accent); color:white; border:none; border-radius:6px; padding:10px 15px; font-weight:bold; cursor:pointer;">🔍</button>
       </div>
 
@@ -193,13 +200,26 @@
       <div id="search-results" class="grid" style="margin-top:15px;"></div>
     </div>
 
-    <!-- COLLECTION CLOUD -->
+    <!-- TAB COLLECTION AVEC FILTRES ET TRI -->
     <div id="tab-collection" class="tab-content">
-      <h3 id="collection-count">Ma Collection (Connexion Cloud...)</h3>
+      <h3 id="collection-count">Ma Collection Cloud</h3>
+      
+      <div class="filter-box">
+        <input type="text" id="collection-filter-input" placeholder="🔎 Filtrer par titre, acteur, réalisateur..." onkeyup="renderCollection()">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="font-size:0.8rem; color:#aaa;">Ordre d'affichage :</label>
+          <select id="collection-sort" onchange="renderCollection()" style="width: auto; padding: 6px; margin:0; font-size: 0.85rem;">
+            <option value="az">🔤 Alphabétique (A-Z)</option>
+            <option value="za">🔤 Inverse (Z-A)</option>
+            <option value="newest">🆕 Plus récents</option>
+          </select>
+        </div>
+      </div>
+
       <div id="collection-grid" class="grid"></div>
     </div>
 
-    <!-- API TMDB -->
+    <!-- TAB CONFIGURATION -->
     <div id="tab-api" class="tab-content">
       <h3>Configuration Clé API TMDB</h3>
       <p style="font-size: 0.85rem; color: #aaa;">Obligatoire pour récupérer les jaquettes et détails des films/séries.</p>
@@ -208,7 +228,7 @@
     </div>
   </div>
 
-  <!-- MODAL / GALERIE JACQUETTES -->
+  <!-- MODALS -->
   <div id="poster-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closePosterModal()">&times;</span>
@@ -217,7 +237,6 @@
     </div>
   </div>
 
-  <!-- MODAL / FICHE DÉTAILLÉE -->
   <div id="movie-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closeModal()">&times;</span>
@@ -239,7 +258,6 @@
     </div>
   </div>
 
-  <!-- MODAL / FICHE ARTISTE & SUGGESTIONS -->
   <div id="artist-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closeArtistModal()">&times;</span>
@@ -261,7 +279,6 @@
   </nav>
 
   <script>
-    // Config Firebase extraite directement depuis la photo
     const firebaseConfig = {
       apiKey: "AIzaSyABV3JlLUv2gBksRgwSdOBo9MKWPE1s2ZU",
       authDomain: "dvdtheque-6a431.firebaseapp.com",
@@ -279,7 +296,6 @@
     let localCollection = [];
     let tmdbApiKey = "";
 
-    // Synchronisation en direct avec la base Firebase
     db.collection("movies").onSnapshot((snapshot) => {
       localCollection = [];
       snapshot.forEach((doc) => {
@@ -288,7 +304,6 @@
       renderCollection();
     });
 
-    // Chargement de la clé TMDB depuis Firebase
     db.collection("settings").doc("tmdb").onSnapshot((doc) => {
       if (doc.exists && doc.data().key) {
         tmdbApiKey = doc.data().key;
@@ -296,9 +311,7 @@
       }
     });
 
-    function getSelectedFormat() {
-      return document.getElementById('scan-format').value;
-    }
+    function getSelectedFormat() { return document.getElementById('scan-format').value; }
 
     function switchTab(tabName) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -367,7 +380,7 @@
       return await res.json();
     }
 
-    async function formatTmdbItem(m, searchType, customFormat = null) {
+    async function formatTmdbItem(m, searchType) {
       let isTV = searchType === 'tv';
       let isCollectionType = searchType === 'collection';
       let typeEndpoint = isTV ? 'tv' : (isCollectionType ? 'collection' : 'movie');
@@ -384,12 +397,11 @@
         if (dirObj) director = { name: dirObj.name, id: dirObj.id };
 
         if (details.credits.cast && details.credits.cast.length > 0) {
-          cast = details.credits.cast.slice(0, 4).map(c => ({ name: c.name, id: c.id }));
+          cast = details.credits.cast.slice(0, 5).map(c => ({ name: c.name, id: c.id }));
         }
       }
 
-      let runtimeStr = isTV ? `${details.number_of_seasons || 1} S. (${details.number_of_episodes || 0} Ép.)` : formatRuntime(details.runtime);
-      let chosenFormat = customFormat || (getSelectedFormat() + (isTV ? ' (Série)' : (isCollectionType ? ' (Coffret)' : '')));
+      let runtimeStr = isTV ? `${details.number_of_seasons || 1} Saison(s) - ${details.number_of_episodes || 0} Ép.` : formatRuntime(details.runtime);
 
       return {
         id: m.id,
@@ -403,20 +415,28 @@
         director: director,
         cast: cast,
         tmdb_url: `https://www.themoviedb.org/${typeEndpoint}/${m.id}`,
-        format: chosenFormat
+        isTV: isTV,
+        seasonsCount: details.number_of_seasons || 1
       };
     }
 
-    async function addMovieToCollection(movie) {
+    async function addMovieToCollection(movie, selectedSeasonLabel = '') {
+      let finalFormat = getSelectedFormat();
+      if (movie.isTV) {
+        finalFormat += ` (Série - ${selectedSeasonLabel})`;
+      }
+
+      let movieToSave = { ...movie, format: finalFormat };
+
       let exists = localCollection.some(item => 
-        item.title.toLowerCase() === movie.title.toLowerCase() && item.format === movie.format
+        item.title.toLowerCase() === movieToSave.title.toLowerCase() && item.format === movieToSave.format
       );
       
       if (exists) {
-        alert(`⚠️ DOUBLON : "${movie.title}" [${movie.format}] est déjà présent.`);
+        alert(`⚠️ DOUBLON : "${movieToSave.title}" [${movieToSave.format}] est déjà dans votre collection.`);
       } else {
-        await db.collection("movies").add(movie);
-        alert(`✅ Enregistré dans le Cloud : "${movie.title}" (${movie.format})`);
+        await db.collection("movies").add(movieToSave);
+        alert(`✅ Ajouté à la collection : "${movieToSave.title}" (${movieToSave.format})`);
       }
     }
 
@@ -427,11 +447,34 @@
     }
 
     function renderCollection() {
-      document.getElementById('collection-count').innerText = `Ma Collection Cloud (${localCollection.length})`;
+      let filterText = document.getElementById('collection-filter-input').value.toLowerCase().trim();
+      let sortType = document.getElementById('collection-sort').value;
+
+      // Filtrage intelligent (Titre, Réalisateur, Acteurs)
+      let filtered = localCollection.filter(m => {
+        let titleMatch = m.title && m.title.toLowerCase().includes(filterText);
+        let dirMatch = m.director && m.director.name && m.director.name.toLowerCase().includes(filterText);
+        let castMatch = m.cast && m.cast.some(c => c.name.toLowerCase().includes(filterText));
+        return titleMatch || dirMatch || castMatch;
+      });
+
+      // Tri
+      if (sortType === 'az') {
+        filtered.sort((a, b) => a.title.localeCompare(b.title));
+      } else if (sortType === 'za') {
+        filtered.sort((a, b) => b.title.localeCompare(a.title));
+      }
+
+      document.getElementById('collection-count').innerText = `Ma Collection Cloud (${filtered.length} / ${localCollection.length})`;
       let grid = document.getElementById('collection-grid');
       grid.innerHTML = '';
 
-      localCollection.forEach((movie) => {
+      if (filtered.length === 0) {
+        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa; margin-top:20px;">Aucun élément ne correspond à votre recherche.</p>';
+        return;
+      }
+
+      filtered.forEach((movie) => {
         let posterUrl = movie.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
         let formatClass = movie.format.includes('4K') ? 'format-4K' : (movie.format.includes('Blu-ray') ? 'format-Bluray' : 'format-DVD');
         
@@ -504,7 +547,7 @@
       let res = await fetch(`https://api.themoviedb.org/3/search/${searchType}?api_key=${tmdbApiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
       let data = await res.json();
       let container = document.getElementById('search-results');
-      container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement...</p>';
+      container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Recherche en cours...</p>';
 
       if (data.results && data.results.length > 0) {
         container.innerHTML = '';
@@ -513,19 +556,39 @@
           let movie = await formatTmdbItem(m, searchType);
           window[`searchResult_${idx}`] = movie;
 
+          let seasonSelectorHTML = '';
+          if (movie.isTV) {
+            seasonSelectorHTML = `<div style="padding:0 10px;"><select id="season-select-${idx}" style="font-size:0.8rem; padding:6px; margin-top:5px;">`;
+            seasonSelectorHTML += `<option value="Intégrale (Saisons 1 à ${movie.seasonsCount})">📦 Intégrale (Saisons 1 à ${movie.seasonsCount})</option>`;
+            for (let s = 1; s <= movie.seasonsCount; s++) {
+              seasonSelectorHTML += `<option value="Saison ${s}">📺 Saison ${s}</option>`;
+            }
+            seasonSelectorHTML += `</select></div>`;
+          }
+
           let card = document.createElement('div');
           card.className = 'card';
           card.innerHTML = `
             <img id="img-result-${idx}" src="${movie.poster || 'https://via.placeholder.com/150x220'}" alt="${movie.title}">
             <div class="card-info"><div class="card-title">${movie.title}</div></div>
-            <button style="background:#444; color:white; border:none; padding:6px; margin:0 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;" onclick="openPosterGallery(${movie.id}, ${idx})">🔄 Changer la jaquette</button>
-            <button class="action-btn" style="margin:10px;" onclick='addMovieToCollection(window["searchResult_${idx}"])'>+ Ajouter (${movie.format})</button>
+            ${seasonSelectorHTML}
+            <button style="background:#444; color:white; border:none; padding:6px; margin:5px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;" onclick="openPosterGallery(${movie.id}, ${idx})">🔄 Jaquette</button>
+            <button class="action-btn" style="margin:10px;" onclick='triggerAddMovie(${idx})'>+ Ajouter</button>
           `;
           container.appendChild(card);
         }
       } else {
         container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucun résultat.</p>';
       }
+    }
+
+    function triggerAddMovie(idx) {
+      let movie = window[`searchResult_${idx}`];
+      let seasonLabel = '';
+      if (movie.isTV) {
+        seasonLabel = document.getElementById(`season-select-${idx}`).value;
+      }
+      addMovieToCollection(movie, seasonLabel);
     }
 
     async function openPosterGallery(movieId, cardIndex) {
@@ -610,13 +673,6 @@
             card.innerHTML = `
               <img src="${formatted.poster}" alt="${formatted.title}">
               <div class="card-info"><div class="card-title">${formatted.title}</div></div>
-              <div style="padding:0 5px;">
-                <select id="suggest-format-${idx}" style="padding:4px; font-size:0.75rem;">
-                  <option value="DVD">📀 DVD</option>
-                  <option value="Blu-ray">🟦 Blu-ray</option>
-                  <option value="4K UHD" selected>💜 4K UHD</option>
-                </select>
-              </div>
               <button class="action-btn" style="margin:5px; padding:6px; font-size:0.75rem;" onclick='addSuggestedMovie(${idx})'>+ Ajouter</button>
             `;
             suggestedList.appendChild(card);
@@ -633,7 +689,6 @@
 
     function addSuggestedMovie(idx) {
       let movie = window[`artistSuggest_${idx}`];
-      movie.format = document.getElementById(`suggest-format-${idx}`).value;
       addMovieToCollection(movie);
     }
 
