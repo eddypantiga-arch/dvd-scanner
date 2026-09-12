@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DVDthèque - Fiches, Filmographies & Suggestions</title>
+  <title>DVDthèque - Films, Séries & Support</title>
   <style>
     :root {
       --bg-color: #121212;
@@ -177,9 +177,6 @@
       cursor: pointer;
       margin-right: 5px;
     }
-    .clickable-person:hover {
-      color: #7dd3fc;
-    }
 
     .btn-external {
       background: #0284c7;
@@ -206,7 +203,7 @@
 </head>
 <body>
 
-  <header>🎬 DVDthèque - Fiches & Filmographies</header>
+  <header>🎬 DVDthèque - Films, Séries & Support</header>
 
   <div class="container">
     <div class="selector-box">
@@ -214,6 +211,7 @@
         <label>Type d'élément :</label>
         <select id="search-type">
           <option value="movie" selected>🎬 Film seul</option>
+          <option value="tv">📺 Série TV</option>
           <option value="collection">📦 Coffret / Saga</option>
         </select>
       </div>
@@ -234,7 +232,7 @@
       </button>
 
       <div style="display:flex; gap:5px;">
-        <input type="text" id="search-input" placeholder="Ex: Premier Contact, Dune, Inception..." onkeyup="if(event.key==='Enter') searchMovie()">
+        <input type="text" id="search-input" placeholder="Ex: Premier Contact, Breaking Bad..." onkeyup="if(event.key==='Enter') searchMovie()">
         <button onclick="searchMovie()" style="background:var(--accent); color:white; border:none; border-radius:6px; padding:10px 15px; font-weight:bold;">🔍</button>
       </div>
 
@@ -262,13 +260,12 @@
   <div id="poster-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closePosterModal()">&times;</span>
-      <h3 style="margin-top:0;">Choisir une affiche pour ce film :</h3>
-      <p style="font-size:0.8rem; color:#aaa;">Cliquez sur l'image qui correspond à votre boîtier :</p>
+      <h3 style="margin-top:0;">Choisir une affiche :</h3>
       <div id="poster-gallery" class="poster-gallery"></div>
     </div>
   </div>
 
-  <!-- MODAL / FICHE DÉTAILLÉE DU FILM -->
+  <!-- MODAL / FICHE DÉTAILLÉE -->
   <div id="movie-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closeModal()">&times;</span>
@@ -277,9 +274,9 @@
       
       <div class="meta-item"><strong>Format :</strong> <span id="modal-format"></span></div>
       <div class="meta-item"><strong>Genre :</strong> <span id="modal-genres"></span></div>
-      <div class="meta-item"><strong>Durée :</strong> <span id="modal-runtime"></span></div>
-      <div class="meta-item"><strong>Réalisateur :</strong> <span id="modal-director"></span></div>
-      <div class="meta-item"><strong>Têtes d'affiche :</strong> <span id="modal-cast"></span></div>
+      <div class="meta-item"><strong>Durée / Épisodes :</strong> <span id="modal-runtime"></span></div>
+      <div class="meta-item"><strong>Créateur / Réalisateur :</strong> <span id="modal-director"></span></div>
+      <div class="meta-item"><strong>Casting principal :</strong> <span id="modal-cast"></span></div>
       <div class="meta-item"><strong>Date de sortie :</strong> <span id="modal-date"></span></div>
       <div class="meta-item"><strong>Note :</strong> ⭐ <span id="modal-rating"></span>/10</div>
       
@@ -290,7 +287,7 @@
     </div>
   </div>
 
-  <!-- MODAL / RECHERCHE ARTISTE (ACTEUR OU RÉALISATEUR) -->
+  <!-- MODAL / RECHERCHE ARTISTE -->
   <div id="artist-modal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="closeArtistModal()">&times;</span>
@@ -299,7 +296,7 @@
       <div class="artist-section-title">📚 Dans votre collection :</div>
       <div id="artist-owned-list" class="grid"></div>
 
-      <div class="artist-section-title">💡 Autres films célèbres (Propositions) :</div>
+      <div class="artist-section-title">💡 Autres titres célèbres (Propositions) :</div>
       <div id="artist-suggested-list" class="grid"></div>
     </div>
   </div>
@@ -412,27 +409,27 @@
       return `${h}h ${m}m`;
     }
 
-    async function fetchMovieDetails(id, isCollection) {
+    async function fetchMovieDetails(id, type) {
       let apiKey = localStorage.getItem('tmdb_api_key');
-      let type = isCollection ? 'collection' : 'movie';
       let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${apiKey}&language=fr-FR&append_to_response=credits`);
       return await res.json();
     }
 
-    async function formatTmdbMovie(m, isCollectionType) {
-      let titleName = isCollectionType ? (m.name || m.title) : m.title;
-      let details = await fetchMovieDetails(m.id, isCollectionType);
+    async function formatTmdbItem(m, searchType, customFormat = null) {
+      let isTV = searchType === 'tv';
+      let isCollectionType = searchType === 'collection';
+      let typeEndpoint = isTV ? 'tv' : (isCollectionType ? 'collection' : 'movie');
+
+      let titleName = isTV ? (m.name || m.original_name) : (isCollectionType ? (m.name || m.title) : m.title);
+      let details = await fetchMovieDetails(m.id, typeEndpoint);
 
       let genres = details.genres ? details.genres.map(g => g.name).join(', ') : 'N/A';
-      if (!genres && m.genre_ids) {
-        genres = m.genre_ids.map(id => genreMap[id]).filter(Boolean).join(', ');
-      }
 
       let director = { name: 'Inconnu', id: null };
       let cast = [];
 
       if (details.credits) {
-        let dirObj = details.credits.crew ? details.credits.crew.find(c => c.job === 'Director') : null;
+        let dirObj = details.credits.crew ? details.credits.crew.find(c => c.job === 'Director' || c.job === 'Executive Producer') : null;
         if (dirObj) director = { name: dirObj.name, id: dirObj.id };
 
         if (details.credits.cast && details.credits.cast.length > 0) {
@@ -440,23 +437,31 @@
         }
       }
 
+      let runtimeStr = 'Non communiquée';
+      if (isTV) {
+        runtimeStr = `${details.number_of_seasons || 1} Saison(s) - ${details.number_of_episodes || 0} Ép.`;
+      } else {
+        runtimeStr = formatRuntime(details.runtime);
+      }
+
+      let chosenFormat = customFormat || (getSelectedFormat() + (isTV ? ' (Série)' : (isCollectionType ? ' (Coffret)' : '')));
+
       return {
         id: m.id,
         title: titleName,
         poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
         overview: details.overview || m.overview || 'Aucun résumé disponible.',
-        release_date: details.release_date || m.release_date || 'Inconnue',
+        release_date: details.first_air_date || details.release_date || m.release_date || 'Inconnue',
         vote_average: m.vote_average ? m.vote_average.toFixed(1) : 'N/A',
-        runtime: formatRuntime(details.runtime),
+        runtime: runtimeStr,
         genres: genres || 'Général',
         director: director,
         cast: cast,
-        tmdb_url: isCollectionType ? `https://www.themoviedb.org/collection/${m.id}` : `https://www.themoviedb.org/movie/${m.id}`,
-        format: getSelectedFormat() + (isCollectionType ? ' (Coffret)' : '')
+        tmdb_url: `https://www.themoviedb.org/${typeEndpoint}/${m.id}`,
+        format: chosenFormat
       };
     }
 
-    // INSPECTER UN ARTISTE (ACTEUR / RÉALISATEUR)
     async function inspectPerson(personId, personName) {
       let apiKey = localStorage.getItem('tmdb_api_key');
       if (!apiKey) return;
@@ -464,7 +469,6 @@
       document.getElementById('artist-name').innerText = personName;
       let collection = getCollection();
 
-      // 1. Chercher dans votre collection existante
       let ownedList = document.getElementById('artist-owned-list');
       ownedList.innerHTML = '';
       
@@ -488,10 +492,9 @@
           ownedList.appendChild(card);
         });
       } else {
-        ownedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Aucun film trouvé dans votre collection.</p>';
+        ownedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Aucun élément trouvé dans votre collection.</p>';
       }
 
-      // 2. Chercher les propositions/suggestions sur TMDB
       let suggestedList = document.getElementById('artist-suggested-list');
       suggestedList.innerHTML = '<p style="grid-column: span 2; color:#aaa; font-size:0.85rem;">Recherche de suggestions...</p>';
 
@@ -503,7 +506,6 @@
         if (data.cast) allCredits = allCredits.concat(data.cast);
         if (data.crew) allCredits = allCredits.concat(data.crew.filter(c => c.job === 'Director'));
 
-        // Filtrer les films déjà possédés et trier par popularité
         let ownedIds = collection.map(c => c.id);
         let suggestions = allCredits
           .filter(m => !ownedIds.includes(m.id) && m.poster_path)
@@ -514,7 +516,7 @@
         if (suggestions.length > 0) {
           for (let idx = 0; idx < suggestions.length; idx++) {
             let m = suggestions[idx];
-            let formatted = await formatTmdbMovie(m, false);
+            let formatted = await formatTmdbItem(m, 'movie');
             window[`artistSuggest_${idx}`] = formatted;
 
             let card = document.createElement('div');
@@ -524,7 +526,14 @@
               <div class="card-info">
                 <div class="card-title">${formatted.title}</div>
               </div>
-              <button class="action-btn" style="margin:5px; padding:6px; font-size:0.75rem;" onclick='addMovieToCollection(window["artistSuggest_${idx}"])'>+ Ajouter</button>
+              <div style="padding:0 5px;">
+                <select id="suggest-format-${idx}" style="padding:4px; font-size:0.75rem;">
+                  <option value="DVD">📀 DVD</option>
+                  <option value="Blu-ray">🟦 Blu-ray</option>
+                  <option value="4K UHD" selected>💜 4K UHD</option>
+                </select>
+              </div>
+              <button class="action-btn" style="margin:5px; padding:6px; font-size:0.75rem;" onclick='addSuggestedMovie(${idx})'>+ Ajouter</button>
             `;
             suggestedList.appendChild(card);
           }
@@ -538,6 +547,13 @@
       document.getElementById('artist-modal').style.display = 'block';
     }
 
+    function addSuggestedMovie(idx) {
+      let movie = window[`artistSuggest_${idx}`];
+      let selectedFormat = document.getElementById(`suggest-format-${idx}`).value;
+      movie.format = selectedFormat;
+      addMovieToCollection(movie);
+    }
+
     function closeArtistModal() {
       document.getElementById('artist-modal').style.display = 'none';
     }
@@ -545,9 +561,8 @@
     async function openPosterGallery(movieId, cardIndex) {
       let apiKey = localStorage.getItem('tmdb_api_key');
       let searchType = document.getElementById('search-type').value;
-      let endpoint = searchType === 'collection' ? 'collection' : 'movie';
 
-      let res = await fetch(`https://api.themoviedb.org/3/${endpoint}/${movieId}/images?api_key=${apiKey}&include_image_language=fr,en,null`);
+      let res = await fetch(`https://api.themoviedb.org/3/${searchType}/${movieId}/images?api_key=${apiKey}&include_image_language=fr,en,null`);
       let data = await res.json();
 
       let gallery = document.getElementById('poster-gallery');
@@ -620,10 +635,9 @@
       document.getElementById('modal-poster').src = movie.poster || 'https://via.placeholder.com/300x450?text=Pas+d+image';
       document.getElementById('modal-title').innerText = movie.title;
       document.getElementById('modal-format').innerText = movie.format;
-      document.getElementById('modal-genres').innerText = movie.genres || 'S.F., Action...';
+      document.getElementById('modal-genres').innerText = movie.genres || 'Général';
       document.getElementById('modal-runtime').innerText = movie.runtime || 'Non renseignée';
       
-      // Réalisateur cliquable
       let dirEl = document.getElementById('modal-director');
       if (movie.director && movie.director.id) {
         dirEl.innerHTML = `<span class="clickable-person" onclick="inspectPerson(${movie.director.id}, '${movie.director.name.replace(/'/g, "\\'")}')">${movie.director.name}</span>`;
@@ -631,7 +645,6 @@
         dirEl.innerText = movie.director ? movie.director.name : 'Inconnu';
       }
 
-      // Casting cliquable
       let castEl = document.getElementById('modal-cast');
       if (movie.cast && Array.isArray(movie.cast) && movie.cast.length > 0) {
         castEl.innerHTML = movie.cast.map(c => 
@@ -681,8 +694,7 @@
       if (!apiKey) return alert("Veuillez configurer votre clé API dans l'onglet ⚙️ Clé API.");
       if (!query) return;
 
-      let endpoint = searchType === 'collection' ? 'collection' : 'movie';
-      let res = await fetch(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
+      let res = await fetch(`https://api.themoviedb.org/3/search/${searchType}?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
       let data = await res.json();
       let container = document.getElementById('search-results');
       container.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des données...</p>';
@@ -691,7 +703,7 @@
         container.innerHTML = '';
         for (let idx = 0; idx < Math.min(data.results.length, 6); idx++) {
           let m = data.results[idx];
-          let movie = await formatTmdbMovie(m, searchType === 'collection');
+          let movie = await formatTmdbItem(m, searchType);
           window[`searchResultMovie_${idx}`] = movie;
 
           let card = document.createElement('div');
