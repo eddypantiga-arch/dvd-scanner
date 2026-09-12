@@ -22,7 +22,7 @@
     .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
     input, select, button { background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 8px 12px; border-radius: 4px; font-size: 0.9rem; }
     input[type="text"] { flex-grow: 1; }
-    button.action-btn { background: var(--accent); border: none; font-weight: bold; cursor: pointer; }
+    button.action-btn { background: var(--accent); border: none; font-weight: bold; cursor: pointer; color: #fff; }
     .format-selector { display: flex; gap: 15px; align-items: center; margin: 10px 0; background: #222; padding: 10px; border-radius: 4px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; }
     .card { background: var(--card-bg); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; }
@@ -43,10 +43,10 @@
   </header>
 
   <nav>
-    <button class="nav-btn active" onclick="switchTab('collection')">Ma Collection</button>
-    <button class="nav-btn" onclick="switchTab('search')">Ajouter (TMDB)</button>
-    <button class="nav-btn" onclick="switchTab('airing')">Séries du Jour</button>
-    <button class="nav-btn" onclick="switchTab('config')">Config</button>
+    <button class="nav-btn active" onclick="switchTab('collection', event)">Ma Collection</button>
+    <button class="nav-btn" onclick="switchTab('search', event)">Ajouter (TMDB)</button>
+    <button class="nav-btn" onclick="switchTab('airing', event)">Séries du Jour</button>
+    <button class="nav-btn" onclick="switchTab('config', event)">Config</button>
   </nav>
 
   <div class="container">
@@ -75,7 +75,7 @@
     </section>
 
     <section id="tab-airing" class="tab-content">
-      <p style="font-size:0.85rem; color:#aaa;">Séries diffusées aujourd'hui. Cliquez sur ★ pour ajouter aux favoris.</p>
+      <p style="font-size:0.85rem; color:#aaa;">Séries diffusées aujourd'hui.</p>
       <div id="airing-grid" class="grid"></div>
     </section>
 
@@ -117,82 +117,66 @@
     const db = firebase.firestore();
 
     let localCollection = [];
-    let localFavorites = [];
     let tmdbApiKey = "";
 
-    // Récupération Globale : Cherche dans "movies" ET lit les collections orphelines
-    async function loadAllMovies() {
-      const itemsMap = new Map();
-
-      // 1. Charger depuis la collection standard "movies"
-      try {
-        const moviesSnap = await db.collection("movies").get();
-        moviesSnap.forEach(doc => {
-          itemsMap.set(doc.id, { docId: doc.id, collectionName: "movies", ...doc.data() });
-        });
-      } catch (e) {}
-
-      // 2. Charger les collections enregistrées sous forme d'IDs uniques (sauvetage)
-      try {
-        const configSnap = await db.collection("config").doc("tmdb").get();
-        if (configSnap.exists) tmdbApiKey = configSnap.data().key || "";
-      } catch (e) {}
-
-      // Si le champ 'title' existe directement dans un document isolé
-      localCollection = Array.from(itemsMap.values()).filter(item => item.title);
-      populateGenreDropdown();
-      renderCollection();
-    }
-
-    // Sauvegarde auto de la clé dans les deux emplacements possibles
-    async function saveApiKey() {
-      const key = document.getElementById('api-key-input').value.trim();
-      if (!key) return alert("Veuillez saisir une clé.");
-      tmdbApiKey = key;
-      await db.collection("config").doc("tmdb").set({ key: key }, { merge: true });
-      await db.collection("settings").doc("tmdb").set({ key: key }, { merge: true });
-      alert("Clé API enregistrée !");
-    }
-
-    // Chargement initial
-    loadAllMovies();
-
-    // Synchro dynamique de la collection movies
+    // Lecture robuste de la collection
     db.collection("movies").onSnapshot(snapshot => {
+      localCollection = [];
       snapshot.forEach(doc => {
         const data = doc.data();
-        if (data.title && !localCollection.some(m => m.docId === doc.id)) {
-          localCollection.push({ docId: doc.id, collectionName: "movies", ...data });
-        }
+        localCollection.push({
+          docId: doc.id,
+          title: data.title || data.nom || "Titre inconnu",
+          year: data.year || data.annee || "",
+          poster: data.poster || data.image || data.poster_path || "",
+          format: data.format || "DVD",
+          genres: data.genres || [],
+          directors: data.directors || data.realisateur || [],
+          cast: data.cast || data.acteurs || [],
+          overview: data.overview || data.synopsis || "Aucun synopsis.",
+          providers: data.providers || []
+        });
       });
       populateGenreDropdown();
       renderCollection();
+    }, err => {
+      console.error("Erreur de chargement Firestore :", err);
     });
 
-    // Favoris
-    db.collection("favorites").onSnapshot(snapshot => {
-      localFavorites = [];
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        if (data.tvIds && Array.isArray(data.tvIds)) localFavorites.push(...data.tvIds);
-        else if (data.id) localFavorites.push(data.id);
-      });
+    // Chargement de la clé TMDB
+    db.collection("config").doc("tmdb").onSnapshot(doc => {
+      if (doc.exists && doc.data().key) {
+        tmdbApiKey = doc.data().key;
+        const input = document.getElementById('api-key-input');
+        if (input) input.value = tmdbApiKey;
+      }
     });
 
-    function switchTab(tabName) {
+    function switchTab(tabName, evt) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
       document.getElementById(`tab-${tabName}`).classList.add('active');
-      event.target.classList.add('active');
+      if (evt && evt.target) evt.target.classList.add('active');
 
       if (tabName === 'airing') loadAiringTodayTV();
-      if (tabName === 'config') document.getElementById('api-key-input').value = tmdbApiKey;
+      if (tabName === 'config') {
+        const input = document.getElementById('api-key-input');
+        if (input) input.value = tmdbApiKey;
+      }
     }
 
     function getSelectedFormat() {
       const radios = document.getElementsByName('format-choice');
       for (let r of radios) { if (r.checked) return r.value; }
       return 'DVD';
+    }
+
+    async function saveApiKey() {
+      const key = document.getElementById('api-key-input').value.trim();
+      if (!key) return alert("Veuillez saisir une clé.");
+      tmdbApiKey = key;
+      await db.collection("config").doc("tmdb").set({ key: key }, { merge: true });
+      alert("Clé API enregistrée !");
     }
 
     async function fetchMovieDetails(id, type = 'movie') {
@@ -213,7 +197,6 @@
         title: m.title || m.name,
         type: searchType,
         year: (m.release_date || m.first_air_date || '').slice(0, 4),
-        releaseDate: m.release_date || m.first_air_date || '',
         poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
         overview: m.overview || 'Aucun synopsis disponible.',
         genres: m.genres ? m.genres.map(g => g.name) : [],
@@ -226,7 +209,7 @@
     async function searchMovie() {
       const query = document.getElementById('tmdb-query').value.trim();
       const type = document.getElementById('tmdb-type').value;
-      if (!query || !tmdbApiKey) return alert("Vérifiez votre recherche et la clé API.");
+      if (!query || !tmdbApiKey) return alert("Vérifiez votre recherche et la clé API dans Config.");
 
       const res = await fetch(`https://api.themoviedb.org/3/search/${type}?api_key=${tmdbApiKey}&query=${encodeURIComponent(query)}&language=fr-FR`);
       const data = await res.json();
@@ -235,17 +218,18 @@
       grid.innerHTML = '';
 
       for (let item of data.results) {
-        const full = await fetchMovieDetails(item.id, type);
-        const formatted = formatTmdbItem(full, type);
-
         const card = document.createElement('div');
         card.className = 'card';
+        const poster = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://via.placeholder.com/150x225?text=No+Cover';
+        const title = item.title || item.name;
+        const year = (item.release_date || item.first_air_date || '').slice(0, 4);
+
         card.innerHTML = `
-          <img src="${formatted.poster || 'https://via.placeholder.com/150x225?text=No+Cover'}" alt="${formatted.title}">
+          <img src="${poster}" alt="${title}">
           <div class="card-info">
-            <div class="card-title">${formatted.title}</div>
-            <div class="card-meta">${formatted.year}</div>
-            <button class="action-btn" style="margin-top:5px; font-size:0.7rem;" onclick="triggerAddMovie('${formatted.id}', '${type}')">+ Ajouter</button>
+            <div class="card-title">${title}</div>
+            <div class="card-meta">${year}</div>
+            <button class="action-btn" style="margin-top:5px; font-size:0.7rem;" onclick="triggerAddMovie('${item.id}', '${type}')">+ Ajouter</button>
           </div>
         `;
         grid.appendChild(card);
@@ -257,9 +241,6 @@
       const formatted = formatTmdbItem(full, type);
       formatted.format = getSelectedFormat();
       formatted.addedAt = new Date().toISOString();
-
-      const exists = localCollection.some(m => m.title.toLowerCase() === formatted.title.toLowerCase() && m.format === formatted.format);
-      if (exists) return alert("Ce titre est déjà dans votre collection.");
 
       await db.collection("movies").add(formatted);
       alert("Ajouté à la collection !");
@@ -281,9 +262,9 @@
 
       let filtered = localCollection.filter(m => {
         const matchesQuery = m.title.toLowerCase().includes(query) ||
-                             (m.cast && m.cast.some(a => a.toLowerCase().includes(query))) ||
-                             (m.directors && m.directors.some(d => d.toLowerCase().includes(query)));
-        const matchesGenre = genre === "" || (m.genres && m.genres.includes(genre));
+                             (Array.isArray(m.cast) && m.cast.some(a => String(a).toLowerCase().includes(query))) ||
+                             (Array.isArray(m.directors) && m.directors.some(d => String(d).toLowerCase().includes(query)));
+        const matchesGenre = genre === "" || (Array.isArray(m.genres) && m.genres.includes(genre));
         return matchesQuery && matchesGenre;
       });
 
@@ -292,16 +273,21 @@
       const grid = document.getElementById('collection-grid');
       grid.innerHTML = '';
 
+      if (filtered.length === 0) {
+        grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #888;">Aucun film trouvé.</p>';
+        return;
+      }
+
       filtered.forEach(m => {
         const card = document.createElement('div');
         card.className = 'card';
         card.onclick = () => openModalObject(m);
         card.innerHTML = `
-          <span class="badge">${m.format || 'DVD'}</span>
+          <span class="badge">${m.format}</span>
           <img src="${m.poster || 'https://via.placeholder.com/150x225?text=No+Cover'}" alt="${m.title}">
           <div class="card-info">
             <div class="card-title">${m.title}</div>
-            <div class="card-meta">${m.year || ''}</div>
+            <div class="card-meta">${m.year}</div>
           </div>
         `;
         grid.appendChild(card);
@@ -312,13 +298,13 @@
       const body = document.getElementById('modal-body');
       body.innerHTML = `
         <h2 style="margin-top:0;">${m.title} (${m.year})</h2>
-        <p><strong>Format :</strong> ${m.format || 'DVD'}</p>
+        <p><strong>Format :</strong> ${m.format}</p>
         <p><strong>Genres :</strong> ${(m.genres || []).join(', ')}</p>
         <p><strong>Réalisation :</strong> ${(m.directors || []).join(', ')}</p>
         <p><strong>Acteurs :</strong> ${(m.cast || []).join(', ')}</p>
         <p><strong>Disponible sur :</strong> ${(m.providers || []).join(', ') || 'Aucune plateforme'}</p>
         <p style="font-size:0.85rem; color:#ccc;">${m.overview}</p>
-        <button class="action-btn" style="background:#c0392b;" onclick="deleteMovie('${m.docId}', '${m.collectionName}')">Supprimer</button>
+        <button class="action-btn" style="background:#c0392b;" onclick="deleteMovie('${m.docId}')">Supprimer</button>
       `;
       document.getElementById('detail-modal').style.display = 'flex';
     }
@@ -327,11 +313,9 @@
       document.getElementById('detail-modal').style.display = 'none';
     }
 
-    async function deleteMovie(docId, colName = 'movies') {
+    async function deleteMovie(docId) {
       if (confirm("Supprimer ce titre ?")) {
-        await db.collection(colName).doc(docId).delete();
-        localCollection = localCollection.filter(m => m.docId !== docId);
-        renderCollection();
+        await db.collection("movies").doc(docId).delete();
         closeModal();
       }
     }
@@ -345,35 +329,21 @@
       grid.innerHTML = '';
 
       (data.results || []).forEach(tv => {
-        const isFav = localFavorites.includes(tv.id);
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
           <img src="${tv.poster_path ? 'https://image.tmdb.org/t/p/w500' + tv.poster_path : 'https://via.placeholder.com/150x225'}" alt="${tv.name}">
           <div class="card-info">
             <div class="card-title">${tv.name}</div>
-            <button class="action-btn" style="margin-top:5px; font-size:0.7rem;" onclick="toggleFavoriteTV(${tv.id})">
-              ${isFav ? '★ Favori' : '☆ Suivre'}
-            </button>
           </div>
         `;
         grid.appendChild(card);
       });
     }
 
-    async function toggleFavoriteTV(tvId) {
-      const docRef = db.collection("favorites").doc("list");
-      if (localFavorites.includes(tvId)) {
-        await docRef.set({ tvIds: firebase.firestore.FieldValue.arrayRemove(tvId) }, { merge: true });
-      } else {
-        await docRef.set({ tvIds: firebase.firestore.FieldValue.arrayUnion(tvId) }, { merge: true });
-      }
-      loadAiringTodayTV();
-    }
-
     function exportCollection() {
       if (localCollection.length === 0) return alert("Votre collection est vide.");
-      const cleanData = localCollection.map(({ docId, collectionName, ...rest }) => rest);
+      const cleanData = localCollection.map(({ docId, ...rest }) => rest);
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cleanData, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
@@ -396,12 +366,9 @@
             const batch = db.batch();
             let addedCount = 0;
             items.forEach((item) => {
-              const exists = localCollection.some(m => m.title.toLowerCase() === item.title.toLowerCase() && m.format === item.format);
-              if (!exists) {
-                const newDocRef = db.collection("movies").doc();
-                batch.set(newDocRef, item);
-                addedCount++;
-              }
+              const newDocRef = db.collection("movies").doc();
+              batch.set(newDocRef, item);
+              addedCount++;
             });
             await batch.commit();
             alert(`✅ ${addedCount} éléments ajoutés.`);
