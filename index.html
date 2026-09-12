@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DVDthèque Cloud</title>
   
-  <!-- SDK Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
@@ -137,7 +136,7 @@
       color: #aaa;
       border: 1px solid #555;
       border-radius: 4px;
-      padding: 5px;
+      padding: 6px;
       font-size: 0.75rem;
       font-weight: bold;
       cursor: pointer;
@@ -201,6 +200,18 @@
       border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px;
     }
 
+    .date-group-header {
+      grid-column: 1 / -1;
+      background: #252525;
+      color: var(--imdb-yellow);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.95rem;
+      margin-top: 10px;
+      border-left: 4px solid var(--imdb-yellow);
+    }
+
     .ep-tag {
       background-color: rgba(56, 189, 248, 0.15);
       border-left: 3px solid #38bdf8;
@@ -210,7 +221,6 @@
     }
     .ep-num { font-weight: bold; color: #38bdf8; font-size: 0.75rem; display: block; }
     .ep-title-text { color: #ddd; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
-    .ep-date { color: #aaa; font-size: 0.68rem; margin-top: 4px; display: block; }
   </style>
 </head>
 <body>
@@ -249,14 +259,14 @@
       <p id="search-status" style="text-align:center; color:#ffca28; font-weight:bold; margin-top:10px;"></p>
       <div id="search-results" class="grid" style="margin-top:15px;"></div>
 
-      <!-- BLOC SORTIES SÉRIES J+7 -->
-      <div class="section-title">📺 Épisodes diffusés actuellement (J+7)</div>
+      <!-- BLOC SORTIES SÉRIES PAR DATE -->
+      <div class="section-title">📺 Épisodes diffusés actuellement (Classement par date)</div>
       <div id="airing-today-grid" class="grid">
         <p style="grid-column: span 2; text-align:center; color:#aaa;">Chargement des séries...</p>
       </div>
     </div>
 
-    <!-- TAB COLLECTION AVEC FILTRES ET TRI -->
+    <!-- TAB COLLECTION -->
     <div id="tab-collection" class="tab-content">
       <h3 id="collection-count">Ma Collection Cloud</h3>
       
@@ -389,6 +399,10 @@
         favoriteTvIds = [];
       }
       loadAiringTodayTV();
+      // Si une recherche de série est affichée, on met à jour le statut du bouton favori
+      if (document.getElementById('search-type').value === 'tv') {
+        updateSearchFavoriteButtons();
+      }
     });
 
     db.collection("settings").doc("tmdb").onSnapshot((doc) => {
@@ -465,7 +479,7 @@
     }
 
     function formatDateFR(dateStr) {
-      if (!dateStr) return 'Inconnue';
+      if (!dateStr) return 'Date inconnue';
       let parts = dateStr.split('-');
       if (parts.length === 3) {
         return `${parts[2]}/${parts[1]}/${parts[0]}`;
@@ -550,6 +564,20 @@
       await db.collection("settings").doc("favorites").set({ tvIds: favoriteTvIds });
     }
 
+    function updateSearchFavoriteButtons() {
+      document.querySelectorAll('.btn-fav-search').forEach(btn => {
+        let id = parseInt(btn.getAttribute('data-tvid'));
+        if (favoriteTvIds.includes(id)) {
+          btn.classList.add('active');
+          btn.innerText = '⭐ Favori !';
+        } else {
+          btn.classList.remove('active');
+          btn.innerText = '☆ Mettre en fav';
+        }
+      });
+    }
+
+    /* AFFICHAGE DES SÉRIES GROUPÉES PAR DATE DE DIFFUSION EN CHRONOLOGIQUE */
     async function loadAiringTodayTV() {
       if (!tmdbApiKey) return;
       let grid = document.getElementById('airing-today-grid');
@@ -561,7 +589,7 @@
         
         if (data.results && data.results.length > 0) {
           grid.innerHTML = '';
-          let maxCount = Math.min(data.results.length, 14);
+          let maxCount = Math.min(data.results.length, 16);
 
           let tvList = [];
           for (let idx = 0; idx < maxCount; idx++) {
@@ -570,59 +598,71 @@
             tvList.push(movieItem);
           }
 
-          tvList.sort((a, b) => {
-            let isFavA = favoriteTvIds.includes(a.id);
-            let isFavB = favoriteTvIds.includes(b.id);
-            
-            if (isFavA && !isFavB) return -1;
-            if (!isFavA && isFavB) return 1;
+          // Regroupement par date de diffusion
+          let groupedByDate = {};
+          tvList.forEach((movieItem, globalIdx) => {
+            window[`airingTV_${globalIdx}`] = movieItem;
+            movieItem._globalIdx = globalIdx;
 
-            let dateA = a.episodeInfo && a.episodeInfo.airDate ? a.episodeInfo.airDate : (a.release_date || '');
-            let dateB = b.episodeInfo && b.episodeInfo.airDate ? b.episodeInfo.airDate : (b.release_date || '');
-            return dateB.localeCompare(dateA);
-          });
-
-          tvList.forEach((movieItem, idx) => {
-            window[`airingTV_${idx}`] = movieItem;
-
-            let posterUrl = movieItem.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
-            let isFav = favoriteTvIds.includes(movieItem.id);
-
-            let epHTML = '';
-            if (movieItem.episodeInfo) {
-              let tagLabel = movieItem.episodeInfo.isNext ? 'Prochain' : 'Dernier';
-              let formattedAirDate = formatDateFR(movieItem.episodeInfo.airDate);
-              epHTML = `
-                <div class="ep-tag">
-                  <span class="ep-num">📌 ${tagLabel} : ${movieItem.episodeInfo.code}</span>
-                  <div class="ep-title-text" title="${movieItem.episodeInfo.name}">${movieItem.episodeInfo.name}</div>
-                  <span class="ep-date">📅 Diffusé le : ${formattedAirDate}</span>
-                </div>
-              `;
+            let dateKey = movieItem.episodeInfo && movieItem.episodeInfo.airDate ? movieItem.episodeInfo.airDate : 'Date inconnue';
+            if (!groupedByDate[dateKey]) {
+              groupedByDate[dateKey] = [];
             }
-
-            let card = document.createElement('div');
-            card.className = `card ${isFav ? 'is-favorite' : ''}`;
-            card.innerHTML = `
-              <img src="${posterUrl}" alt="${movieItem.title}">
-              <div class="card-info">
-                <div class="card-title">${movieItem.title}</div>
-                <div style="font-size:0.75rem; color:#aaa;">⭐ ${movieItem.vote_average}/10</div>
-                ${epHTML}
-              </div>
-              <button class="btn-fav ${isFav ? 'active' : ''}" onclick="toggleFavoriteTV(${movieItem.id})">
-                ${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}
-              </button>
-              <button class="action-btn" style="margin:5px 10px;" onclick='addAiringToCollection(${idx}, false)'>+ Collection</button>
-              <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='addAiringToCollection(${idx}, true)'>💡 Envies</button>
-            `;
-            grid.appendChild(card);
+            groupedByDate[dateKey].push(movieItem);
           });
+
+          // Tri des dates de manière chronologique
+          let sortedDates = Object.keys(groupedByDate).sort((a, b) => {
+            if (a === 'Date inconnue') return 1;
+            if (b === 'Date inconnue') return -1;
+            return a.localeCompare(b);
+          });
+
+          sortedDates.forEach(dateStr => {
+            let items = groupedByDate[dateStr];
+            let dateHeader = document.createElement('div');
+            dateHeader.className = 'date-group-header';
+            dateHeader.innerText = `📅 Diffusé le : ${formatDateFR(dateStr)}`;
+            grid.appendChild(dateHeader);
+
+            items.forEach(movieItem => {
+              let posterUrl = movieItem.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
+              let isFav = favoriteTvIds.includes(movieItem.id);
+
+              let epHTML = '';
+              if (movieItem.episodeInfo) {
+                let tagLabel = movieItem.episodeInfo.isNext ? 'Prochain' : 'Dernier';
+                epHTML = `
+                  <div class="ep-tag">
+                    <span class="ep-num">📌 ${tagLabel} : ${movieItem.episodeInfo.code}</span>
+                    <div class="ep-title-text" title="${movieItem.episodeInfo.name}">${movieItem.episodeInfo.name}</div>
+                  </div>
+                `;
+              }
+
+              let card = document.createElement('div');
+              card.className = `card ${isFav ? 'is-favorite' : ''}`;
+              card.innerHTML = `
+                <img src="${posterUrl}" alt="${movieItem.title}">
+                <div class="card-info">
+                  <div class="card-title">${movieItem.title}</div>
+                  <div style="font-size:0.75rem; color:#aaa;">⭐ ${movieItem.vote_average}/10</div>
+                  ${epHTML}
+                </div>
+                <button class="btn-fav ${isFav ? 'active' : ''}" onclick="toggleFavoriteTV(${movieItem.id})">
+                  ${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}
+                </button>
+                <button class="action-btn" style="margin:5px 10px;" onclick='addAiringToCollection(${movieItem._globalIdx}, false)'>+ Collection</button>
+                <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='addAiringToCollection(${movieItem._globalIdx}, true)'>💡 Envies</button>
+              `;
+              grid.appendChild(card);
+            });
+          });
+
         } else {
           grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Aucune série trouvée.</p>';
         }
       } catch (e) {
-        console.error(e);
         grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa;">Erreur de chargement.</p>';
       }
     }
@@ -849,6 +889,7 @@
     function closePosterModal() { document.getElementById('poster-modal').style.display = 'none'; }
     function closeArtistModal() { document.getElementById('artist-modal').style.display = 'none'; }
 
+    /* RECHERCHE AVEC OPTION FAVORI POUR LES SÉRIES */
     async function searchMovie() {
       let query = document.getElementById('search-input').value.trim();
       let searchType = document.getElementById('search-type').value;
@@ -873,7 +914,16 @@
             window[`searchResult_${idx}`] = movie;
 
             let seasonSelectorHTML = '';
+            let favBtnHTML = '';
+
             if (movie.isTV) {
+              let isFav = favoriteTvIds.includes(movie.id);
+              favBtnHTML = `
+                <button class="btn-fav btn-fav-search ${isFav ? 'active' : ''}" data-tvid="${movie.id}" onclick="toggleFavoriteTV(${movie.id})">
+                  ${isFav ? '⭐ Favori !' : '☆ Mettre en fav'}
+                </button>
+              `;
+
               seasonSelectorHTML = `<div style="padding:0 10px;"><select id="season-select-${idx}" style="font-size:0.8rem; padding:6px; margin-top:5px;">`;
               seasonSelectorHTML += `<option value="Intégrale (Saisons 1 à ${movie.seasonsCount})">📦 Intégrale (Saisons 1 à ${movie.seasonsCount})</option>`;
               for (let s = 1; s <= movie.seasonsCount; s++) {
@@ -888,6 +938,7 @@
               <img id="img-result-${idx}" src="${movie.poster || 'https://via.placeholder.com/150x220'}" alt="${movie.title}">
               <div class="card-info"><div class="card-title">${movie.title}</div></div>
               ${seasonSelectorHTML}
+              ${favBtnHTML}
               <button style="background:#444; color:white; border:none; padding:6px; margin:5px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;" onclick="openPosterGallery(${movie.id}, ${idx})">🔄 Jaquette</button>
               <button class="action-btn" style="margin:5px 10px;" onclick='triggerAddMovie(${idx}, false)'>+ Collection</button>
               <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='triggerAddMovie(${idx}, true)'>💡 Liste d'envies</button>
