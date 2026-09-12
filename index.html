@@ -14,6 +14,7 @@
       --bg-color: #121212;
       --card-bg: #1e1e1e;
       --accent: #e50914;
+      --imdb-yellow: #f5c518;
       --text: #ffffff;
       --text-sub: #aaaaaa;
     }
@@ -73,11 +74,19 @@
     .format-DVD { background-color: #e67e22; }
     .format-Bluray { background-color: #2980b9; }
     .format-4K { background-color: #8e44ad; }
+    .format-Wish { background-color: #d35400; }
 
     .btn-delete {
       background: var(--accent);
       color: white; border: none;
-      padding: 8px; margin: 10px;
+      padding: 8px; margin: 5px 10px 10px 10px;
+      border-radius: 5px; font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-move {
+      background: #27ae60;
+      color: white; border: none;
+      padding: 8px; margin: 10px 10px 0 10px;
       border-radius: 5px; font-weight: bold;
       cursor: pointer;
     }
@@ -90,7 +99,7 @@
     }
     nav button {
       background: none; border: none;
-      color: var(--text-sub); font-size: 0.8rem;
+      color: var(--text-sub); font-size: 0.75rem;
       display: flex; flex-direction: column; align-items: center; gap: 4px;
       cursor: pointer;
     }
@@ -154,7 +163,11 @@
 
     .btn-external {
       background: #0284c7; color: white; text-decoration: none;
-      display: block; text-align: center; padding: 12px; border-radius: 6px; font-weight: bold; margin-top: 15px;
+      display: block; text-align: center; padding: 10px; border-radius: 6px; font-weight: bold; margin-top: 10px;
+    }
+    .btn-imdb {
+      background: var(--imdb-yellow); color: #000; text-decoration: none;
+      display: block; text-align: center; padding: 10px; border-radius: 6px; font-weight: bold; margin-top: 10px;
     }
 
     .artist-section-title {
@@ -219,6 +232,13 @@
       <div id="collection-grid" class="grid"></div>
     </div>
 
+    <!-- TAB LISTE D'ENVIES -->
+    <div id="tab-wishlist" class="tab-content">
+      <h3 id="wishlist-count">Ma Liste d'Envies</h3>
+      <p style="font-size: 0.85rem; color: #aaa;">Films ou séries que vous aimeriez acquérir.</p>
+      <div id="wishlist-grid" class="grid"></div>
+    </div>
+
     <!-- TAB CONFIGURATION -->
     <div id="tab-api" class="tab-content">
       <h3>Configuration Clé API TMDB</h3>
@@ -254,6 +274,7 @@
       <p style="margin-top:15px;"><strong>Synopsis :</strong></p>
       <p id="modal-overview" style="color: #ccc; font-size: 0.9rem; line-height: 1.4;"></p>
 
+      <a id="modal-imdb-link" href="#" target="_blank" class="btn-imdb" style="display:none;">🎬 Voir sur IMDb</a>
       <a id="modal-tmdb-link" href="#" target="_blank" class="btn-external">🔗 Voir sur TMDB Web</a>
     </div>
   </div>
@@ -275,6 +296,7 @@
   <nav>
     <button onclick="switchTab('search')" id="nav-search" class="active">🎙️ <span>Recherche</span></button>
     <button onclick="switchTab('collection')" id="nav-collection">📚 <span>Collection</span></button>
+    <button onclick="switchTab('wishlist')" id="nav-wishlist">💡 <span>Envies</span></button>
     <button onclick="switchTab('api')" id="nav-api">⚙️ <span>Clé API</span></button>
   </nav>
 
@@ -302,6 +324,7 @@
         localCollection.push({ docId: doc.id, ...doc.data() });
       });
       renderCollection();
+      renderWishlist();
     });
 
     db.collection("settings").doc("tmdb").onSnapshot((doc) => {
@@ -319,6 +342,7 @@
       document.getElementById('tab-' + tabName).classList.add('active');
       document.getElementById('nav-' + tabName).classList.add('active');
       if (tabName === 'collection') renderCollection();
+      if (tabName === 'wishlist') renderWishlist();
     }
 
     function toggleVoiceInput() {
@@ -376,7 +400,7 @@
     }
 
     async function fetchMovieDetails(id, type) {
-      let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&language=fr-FR&append_to_response=credits`);
+      let res = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${tmdbApiKey}&language=fr-FR&append_to_response=credits,external_ids`);
       return await res.json();
     }
 
@@ -401,6 +425,7 @@
         }
       }
 
+      let imdbId = details.external_ids ? details.external_ids.imdb_id : (details.imdb_id || null);
       let runtimeStr = isTV ? `${details.number_of_seasons || 1} Saison(s) - ${details.number_of_episodes || 0} Ép.` : formatRuntime(details.runtime);
 
       return {
@@ -415,29 +440,45 @@
         director: director,
         cast: cast,
         tmdb_url: `https://www.themoviedb.org/${typeEndpoint}/${m.id}`,
+        imdb_url: imdbId ? `https://www.imdb.com/title/${imdbId}` : null,
         isTV: isTV,
         seasonsCount: details.number_of_seasons || 1
       };
     }
 
-    async function addMovieToCollection(movie, selectedSeasonLabel = '') {
-      let finalFormat = getSelectedFormat();
+    async function addMovieToCollection(movie, selectedSeasonLabel = '', isWishlist = false) {
+      let finalFormat = isWishlist ? 'À Acheter' : getSelectedFormat();
       if (movie.isTV) {
         finalFormat += ` (Série - ${selectedSeasonLabel})`;
       }
 
-      let movieToSave = { ...movie, format: finalFormat };
+      let movieToSave = { ...movie, format: finalFormat, isWishlist: isWishlist };
 
       let exists = localCollection.some(item => 
         item.title.toLowerCase() === movieToSave.title.toLowerCase() && item.format === movieToSave.format
       );
       
       if (exists) {
-        alert(`⚠️ DOUBLON : "${movieToSave.title}" [${movieToSave.format}] est déjà dans votre collection.`);
+        alert(`⚠️ DOUBLON : "${movieToSave.title}" est déjà présent.`);
       } else {
         await db.collection("movies").add(movieToSave);
-        alert(`✅ Ajouté à la collection : "${movieToSave.title}" (${movieToSave.format})`);
+        alert(`✅ Ajouté avec succès : "${movieToSave.title}"`);
       }
+    }
+
+    async function moveToCollection(docId) {
+      let targetFormat = getSelectedFormat();
+      let movie = localCollection.find(m => m.docId === docId);
+      if (!movie) return;
+
+      let cleanFormat = targetFormat + (movie.isTV ? movie.format.replace('À Acheter', '') : '');
+
+      await db.collection("movies").doc(docId).update({
+        isWishlist: false,
+        format: cleanFormat
+      });
+
+      alert(`🎉 "${movie.title}" a été basculé dans la collection physique (${cleanFormat}) !`);
     }
 
     async function deleteMovie(docId) {
@@ -450,27 +491,27 @@
       let filterText = document.getElementById('collection-filter-input').value.toLowerCase().trim();
       let sortType = document.getElementById('collection-sort').value;
 
-      // Filtrage intelligent (Titre, Réalisateur, Acteurs)
-      let filtered = localCollection.filter(m => {
+      let collectionOnly = localCollection.filter(m => !m.isWishlist);
+
+      let filtered = collectionOnly.filter(m => {
         let titleMatch = m.title && m.title.toLowerCase().includes(filterText);
         let dirMatch = m.director && m.director.name && m.director.name.toLowerCase().includes(filterText);
         let castMatch = m.cast && m.cast.some(c => c.name.toLowerCase().includes(filterText));
         return titleMatch || dirMatch || castMatch;
       });
 
-      // Tri
       if (sortType === 'az') {
         filtered.sort((a, b) => a.title.localeCompare(b.title));
       } else if (sortType === 'za') {
         filtered.sort((a, b) => b.title.localeCompare(a.title));
       }
 
-      document.getElementById('collection-count').innerText = `Ma Collection Cloud (${filtered.length} / ${localCollection.length})`;
+      document.getElementById('collection-count').innerText = `Ma Collection Cloud (${filtered.length} / ${collectionOnly.length})`;
       let grid = document.getElementById('collection-grid');
       grid.innerHTML = '';
 
       if (filtered.length === 0) {
-        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa; margin-top:20px;">Aucun élément ne correspond à votre recherche.</p>';
+        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa; margin-top:20px;">Aucun élément trouvé.</p>';
         return;
       }
 
@@ -486,6 +527,35 @@
           <div class="card-info" onclick="openModalByDocId('${movie.docId}')">
             <div class="card-title">${movie.title}</div>
           </div>
+          <button class="btn-delete" onclick="deleteMovie('${movie.docId}')">Supprimer</button>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function renderWishlist() {
+      let wishlistOnly = localCollection.filter(m => m.isWishlist);
+      document.getElementById('wishlist-count').innerText = `Ma Liste d'Envies (${wishlistOnly.length})`;
+      let grid = document.getElementById('wishlist-grid');
+      grid.innerHTML = '';
+
+      if (wishlistOnly.length === 0) {
+        grid.innerHTML = '<p style="grid-column: span 2; text-align:center; color:#aaa; margin-top:20px;">Votre liste d\'envies est vide.</p>';
+        return;
+      }
+
+      wishlistOnly.forEach((movie) => {
+        let posterUrl = movie.poster || 'https://via.placeholder.com/150x220?text=Pas+d+image';
+        
+        let card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <span class="badge-format format-Wish">💡 Envie</span>
+          <img src="${posterUrl}" onclick="openModalByDocId('${movie.docId}')" alt="${movie.title}">
+          <div class="card-info" onclick="openModalByDocId('${movie.docId}')">
+            <div class="card-title">${movie.title}</div>
+          </div>
+          <button class="btn-move" onclick="moveToCollection('${movie.docId}')">↗️ Déplacer en Collection</button>
           <button class="btn-delete" onclick="deleteMovie('${movie.docId}')">Supprimer</button>
         `;
         grid.appendChild(card);
@@ -528,6 +598,14 @@
         linkEl.style.display = 'block';
       } else {
         linkEl.style.display = 'none';
+      }
+
+      let imdbEl = document.getElementById('modal-imdb-link');
+      if (movie.imdb_url) {
+        imdbEl.href = movie.imdb_url;
+        imdbEl.style.display = 'block';
+      } else {
+        imdbEl.style.display = 'none';
       }
 
       document.getElementById('movie-modal').style.display = 'block';
@@ -573,7 +651,8 @@
             <div class="card-info"><div class="card-title">${movie.title}</div></div>
             ${seasonSelectorHTML}
             <button style="background:#444; color:white; border:none; padding:6px; margin:5px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;" onclick="openPosterGallery(${movie.id}, ${idx})">🔄 Jaquette</button>
-            <button class="action-btn" style="margin:10px;" onclick='triggerAddMovie(${idx})'>+ Ajouter</button>
+            <button class="action-btn" style="margin:5px 10px;" onclick='triggerAddMovie(${idx}, false)'>+ Collection</button>
+            <button class="action-btn" style="margin:0 10px 10px 10px; background:#d35400;" onclick='triggerAddMovie(${idx}, true)'>💡 Liste d'envies</button>
           `;
           container.appendChild(card);
         }
@@ -582,13 +661,13 @@
       }
     }
 
-    function triggerAddMovie(idx) {
+    function triggerAddMovie(idx, isWishlist) {
       let movie = window[`searchResult_${idx}`];
       let seasonLabel = '';
       if (movie.isTV) {
         seasonLabel = document.getElementById(`season-select-${idx}`).value;
       }
-      addMovieToCollection(movie, seasonLabel);
+      addMovieToCollection(movie, seasonLabel, isWishlist);
     }
 
     async function openPosterGallery(movieId, cardIndex) {
